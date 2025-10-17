@@ -1,0 +1,73 @@
+global:
+  external:
+    clusterInfo:
+      nodeCIDR: 10.5.2.0/23
+      podCIDR: 10.128.0.0/14
+      serviceCIDR: 172.30.0.0/16
+    dnsDomain: cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    dnsTunnelDomain: cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    storage:
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: "azure-files-sc"
+  tibco:
+    containerRegistry:
+      url: "csgprdeuwrepoedge.jfrog.io"
+      username: ""
+      password: ""
+      repository: "tibco-platform-docker-prod"
+    controlPlaneInstanceId: "cp1"
+    logging:
+      fluentbit:
+        enabled: false
+    serviceAccount: cp1-sa
+hybrid-proxy:
+  enabled: true
+  enableWebHooks: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    enabled: true
+    ingressClassName: openshift-default
+    tls:
+      - secretName: custom-tunnel-tls
+        hosts:
+          - '*.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+    hosts:
+      - host: '*.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 105
+otel-collector:
+  enabled: false
+resource-set-operator:
+  enabled: true
+  enableWebHooks: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+router-operator:
+  enabled: true
+  enableWebHooks: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    enabled: true
+    ingressClassName: openshift-default
+    tls:
+      - secretName: custom-my-tls
+        hosts:
+          - '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+    hosts:
+      - host: '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100

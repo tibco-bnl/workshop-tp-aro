@@ -1,0 +1,203 @@
+global:
+  external:
+    admin:
+      customerID: nxp-customer-id
+      email: cp-test@tibco.com
+      firstname: cp-test
+      lastname: cp-test
+    clusterInfo:
+      nodeCIDR: 10.5.2.0/23
+      podCIDR: 10.128.0.0/14
+      serviceCIDR: 172.30.0.0/16
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET_KEY
+    cpEncryptionSecretName: cporch-encryption-secret
+    db_host: postgresql.tibco-ext.svc.cluster.local
+    db_name: postgres
+    db_password: postgres
+    db_port: "5432"
+    db_secret_name: provider-cp-database-credentials
+    db_ssl_mode: disable
+    db_username: postgres
+    dnsDomain: cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    dnsTunnelDomain: cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    emailServer:
+      smtp:
+        password: ""
+        port: "1025"
+        server: development-mailserver.tibco-ext.svc.cluster.local
+        username: ""
+    emailServerType: smtp
+  tibco:
+    containerRegistry:
+      password: 
+      repository: tibco-platform-docker-prod
+      url: csgprdeuwrepoedge.jfrog.io
+      username: 
+    controlPlaneInstanceId: cp1
+    logging:
+      fluentbit:
+        enabled: false
+    serviceAccount: cp1-sa
+tibco-cp-messaging:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+tp-cp-alertmanager:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+tp-cp-auditsafe:
+  auditsafe:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+  enabled: true
+tp-cp-cli:
+  enabled: true
+tp-cp-configuration:
+  tp-cp-subscription:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+tp-cp-core:
+  cronjobs:
+    cpcronjobservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+    replicaCount: 1
+  identity-management:
+    idm:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 1024Mi
+    replicaCount: 1
+  identity-provider:
+    replicaCount: 1
+    tpcpidpservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+  orchestrator:
+    cporchservice:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 256Mi
+    replicaCount: 1
+  pengine:
+    replicaCount: 1
+    tpcppengineservice:
+      resources:
+        requests:
+          cpu: 300m
+          memory: 128Mi
+  user-subscriptions:
+    cpusersubservice:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 128Mi
+    replicaCount: 1
+  web-server:
+    cpwebserver:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    replicaCount: 1
+tp-cp-core-finops:
+  finops-otel-collector:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  finops-service:
+    finopsservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+  monitoring-service:
+    monitoringservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+    replicaCount: 1
+tp-cp-hawk:
+  enabled: true
+  tp-cp-hawk-infra-querynode:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+tp-cp-hawk-recipes:
+  enabled: true
+tp-cp-infra:
+  enabled: true
+  resources:
+    infra-alerts-services:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    infra-compute-services:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+tp-cp-integration:
+  enabled: true
+  tp-cp-bw5ce-utilities:
+    enabled: true
+  tp-cp-bwce-utilities:
+    enabled: true
+  tp-cp-flogo-utilities:
+    enabled: true
+  tp-cp-integration-bw:
+    bw-webserver:
+      bwwebserver:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+    enabled: true
+  tp-cp-integration-common:
+    fileserver:
+      enabled: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+  tp-cp-integration-flogo:
+    enabled: true
+    flogo-webserver:
+      flogowebserver:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+tp-cp-o11y:
+  enabled: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+tp-cp-prometheus:
+  server:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+    retention: 15d
+tp-cp-recipes:
+  enabled: true
+tp-cp-tibcohub-contrib:
+  enabled: true
