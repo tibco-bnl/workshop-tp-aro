@@ -1756,7 +1756,133 @@ Once the Data Plane is registered and core infrastructure is deployed, you can p
 
 > **Note:** The Control Plane GUI automates the Helm chart installation and configuration for these capabilities. No manual CLI steps are required for this process.
 
---- 
+### Step 10.1: BWCE Ingress Configuration Troubleshooting
+
+**Important Certificate Issue Fix for BWCE Capability**
+
+When adding a BWCE capability to the Data Plane, you may encounter certificate-related issues that cause the API Documentation URL to return unauthorized errors or not work properly. This is typically due to FQDN and certificate mismatch.
+
+#### The Problem
+If you configure BWCE ingress with a custom FQDN like:
+```
+bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro
+```
+
+The API Documentation and other BWCE services may fail with unauthorized errors because the certificate's Subject Alternative Name (SAN) doesn't match your custom domain.
+
+#### The Root Cause
+When you inspect the certificate for the custom FQDN, you'll find that the certificate SAN shows the ARO cluster's native domain:
+```
+*.apps.sicly758.westeurope.aroapp.io
+```
+
+This mismatch between your custom domain and the certificate SAN causes SSL/TLS validation failures.
+
+#### The Solution
+**Use the ARO cluster's native domain for BWCE ingress configuration:**
+
+```
+bwce.apps.sicly758.westeurope.aroapp.io
+```
+
+Where `apps.sicly758.westeurope.aroapp.io` is the DNS domain owned by the ARO cluster.
+
+#### How to Implement the Fix
+
+1. **Get your ARO cluster's ingress domain:**
+   ```bash
+   oc get ingresscontroller -n openshift-ingress-operator default -o json | jq -r '.status.domain'
+   ```
+   This will return something like: `apps.sicly758.westeurope.aroapp.io`
+
+2. **Configure BWCE capability with the correct FQDN:**
+   - When provisioning BWCE capability through the Control Plane GUI
+   - For the ingress configuration, use: `bwce.apps.<your-cluster-specific>.westeurope.aroapp.io`
+   - Replace `<your-cluster-specific>` with the actual value from step 1
+
+3. **Verify the configuration:**
+   - After provisioning, the BWCE API Documentation URL should work correctly
+   - SSL/TLS certificate validation will pass
+   - All BWCE endpoints will be accessible without certificate errors
+
+#### Additional Notes
+- This same principle applies to any custom capabilities requiring ingress access on ARO
+- The ARO cluster automatically manages certificates for its native domain (`*.apps.<cluster-id>.<region>.aroapp.io`)
+- Using custom domains requires additional certificate management which may not be automatically handled
+- For production environments, you may want to configure proper custom certificates if custom domains are required
+
+#### Alternative Solutions for Custom Domains
+If you must use custom domains like `bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro`:
+
+**Complete Custom Domain Setup Process:**
+
+1. **Create a custom SSL/TLS certificate** for your custom domain:
+   ```bash
+   # Example using Let's Encrypt with certbot for custom domain
+   certbot certonly --manual \
+     --preferred-challenges=dns \
+     --email ${EMAIL_FOR_CERTBOT} \
+     --server https://acme-v02.api.letsencrypt.org/directory \
+     --agree-tos \
+     -d "bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro" \
+     --config-dir "${SCRATCH_DIR}/config" \
+     --work-dir "${SCRATCH_DIR}/work" \
+     --logs-dir "${SCRATCH_DIR}/logs"
+   ```
+
+2. **Create a Kubernetes TLS secret** with the custom certificate:
+   ```bash
+   oc create secret tls bwce-custom-tls \
+     -n ${DP_NAMESPACE} \
+     --cert=$SCRATCH_DIR/config/live/bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro/fullchain.pem \
+     --key=$SCRATCH_DIR/config/live/bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro/privkey.pem
+   ```
+
+3. **Add custom DNS entry** pointing to the ARO cluster ingress IP:
+   ```bash
+   # Get the ARO cluster ingress IP
+   INGRESS_IP="$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
+   
+   # Add DNS A record for custom BWCE domain
+   az network dns record-set a add-record \
+     -g ${TP_DNS_RESOURCE_GROUP} \
+     -z ${TP_CLUSTER_DOMAIN} \
+     -n "bwce.apps" \
+     -a ${INGRESS_IP}
+   ```
+
+4. **Configure the OpenShift Route or Ingress** to use the custom certificate:
+   ```bash
+   # Example route configuration with custom TLS
+   oc apply -f - <<EOF
+   apiVersion: route.openshift.io/v1
+   kind: Route
+   metadata:
+     name: bwce-custom-route
+     namespace: ${DP_NAMESPACE}
+   spec:
+     host: bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro
+     to:
+       kind: Service
+       name: bwce-service  # Replace with actual BWCE service name
+     tls:
+       termination: edge
+       certificate: |
+         # Content from fullchain.pem
+       key: |
+         # Content from privkey.pem
+   EOF
+   ```
+
+5. **Update BWCE capability configuration** to use the custom domain and certificate in the Control Plane GUI
+
+**Important Notes for Custom Domain Setup:**
+- **DNS propagation**: Allow time for DNS changes to propagate globally
+- **Certificate validation**: Ensure the certificate matches exactly the domain you're using
+- **Certificate renewal**: Set up automated renewal for Let's Encrypt certificates
+- **Route priority**: Custom routes may conflict with default ingress configurations
+
+However, the simplest and most reliable approach for ARO deployments is to use the cluster's native domain as described above, as it eliminates certificate management complexity and potential DNS issues.
 
 ---
 
