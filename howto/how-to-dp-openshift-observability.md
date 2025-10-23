@@ -920,7 +920,7 @@ Below are screenshots illustrating the observability setup steps on OpenShift AR
 
 #### 1. observability-dp-add-logs-query-service.png
 
-![observability-dp-add-logs-query-service.png](../diagrams/openshift-azure-aro-dp-observability/observability-dp-add-logs-query-service.png)
+![observability-dp-add-logs-query-service.png](../docs/diagrams/openshift-azure-aro-dp-observability/observability-dp-add-logs-query-service.png)
 
 #### 2. observability-dp-add-metrics-query-service-thanos.png
 
@@ -932,26 +932,28 @@ Use customer headers with:
 Do not use any username password.
 
 
-![observability-dp-add-metrics-query-service-thanos.png](../diagrams/openshift-azure-aro-dp-observability/observability-dp-add-metrics-query-service-thanos.png)
+![Screenshot of TIBCO Platform observability configuration interface showing the Add Metrics Query Service form. The form displays fields for service configuration including Name set to thanos-querier, Type dropdown set to HTTP Prometheus, URL field containing a Thanos Querier endpoint, and Authentication section with Custom Headers option selected. The interface shows configuration for connecting to OpenShift monitoring using a bearer token authentication method. The form has Save and Cancel buttons at the bottom.](../docs/diagrams/openshift-azure-aro-dp-observability/observability-dp-add-metrics-query-service-thanos.png)
 
 #### 3. Observability Traces Query service
 
-![observability-dp-add-traces-query.png](../diagrams/openshift-azure-aro-dp-observability/observability-dp-add-traces-query.png)
+#### 3. Observability Traces Query service
+
+![Screenshot of TIBCO Platform observability configuration interface showing the Add Traces Query service form. The interface displays configuration fields including Name set to elasticsearch-sample, Type dropdown set to Elasticsearch, URL field containing an Elasticsearch endpoint with port 9200, and Authentication section with Basic Auth selected showing username elastic. The form has a Connection Validation section showing Validated successfully status with a green checkmark. Save and Cancel buttons appear at the bottom of the form.](../docs/diagrams/openshift-azure-aro-dp-observability/observability-dp-add-traces-query.png)
 
 #### 4. Observability Traces exporter
 
-![observability-dp-add-traces-exporter.png](../diagrams/openshift-azure-aro-dp-observability/observability-dp-add-traces-exporter.png)
+![Screenshot of TIBCO Platform observability configuration interface showing the Add Traces Exporter form. The form displays configuration fields including Name set to jaeger-elasticsearch, Type dropdown set to Elasticsearch Jaeger, with Hosts field showing elasticsearch-sample.elastic.svc:9200. Authentication section shows Basic Auth selected with username elastic and a password field. The connection appears validated successfully with a green checkmark indicator. Save and Cancel buttons appear at the bottom of the interface.](../docs/diagrams/openshift-azure-aro-dp-observability/observability-dp-add-traces-exporter.png)
 
 #### 5. Observability config log server
 
-![observability-aro-logs-server config](../diagrams/openshift-azure-aro-dp-observability/observability-aro-logs-server.png)
+![observability-aro-logs-server config](../docs/diagrams/openshift-azure-aro-dp-observability/observability-aro-logs-server.png)
 
 #### 6. Observability config metrics server
 
-![observability-aro-metrics-server config](../diagrams/openshift-azure-aro-dp-observability/observability-aro-metrics-server.png)
+![observability-aro-metrics-server config](../docs/diagrams/openshift-azure-aro-dp-observability/observability-aro-metrics-server.png)
 
 #### 7. Observability Resouce Trace Server
 
-![observability-aro-traces-server config](../diagrams/openshift-azure-aro-dp-observability/observability-aro-traces-server.png)
+![observability-aro-traces-server config](../docs/diagrams/openshift-azure-aro-dp-observability/observability-aro-traces-server.png)
 
 
