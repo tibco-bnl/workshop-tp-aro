@@ -398,7 +398,7 @@ Storage classes are essential because TIBCO Platform capabilities require persis
 
 ### 8.2. Azure Files for EMS
 
-Docs reference: (Provisioning Considerations)[https://docs.tibco.com/pub/platform-cp/latest/doc/html/Subsystems/ems-capability/user-guide/provisioning-considerations.htm]
+Docs reference: [Provisioning Considerations](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Subsystems/ems-capability/user-guide/provisioning-considerations.htm)
 
 For TIBCO Enterprise Message Service™ (EMS) capability, you will need to create one of the following two storage classes:
 Run the following command to create a storage class with nfs protocol which uses Azure Files
