@@ -397,6 +397,9 @@ EOF
 Storage classes are essential because TIBCO Platform capabilities require persistent storage for configurations, logs, and application data. Using Azure Files provides a managed file storage solution that works well with multi-pod deployments that need shared access to the same files. The mount options are specifically configured to ensure optimal performance and compatibility with TIBCO applications.
 
 ### 8.2. Azure Files for EMS
+
+Docs reference: (Provisioning Considerations)[https://docs.tibco.com/pub/platform-cp/latest/doc/html/Subsystems/ems-capability/user-guide/provisioning-considerations.htm]
+
 For TIBCO Enterprise Message Service™ (EMS) capability, you will need to create one of the following two storage classes:
 Run the following command to create a storage class with nfs protocol which uses Azure Files
 
@@ -425,8 +428,6 @@ reclaimPolicy: Retain
 volumeBindingMode: Immediate
 EOF
 ```
-
-EMS requires NFS storage because it provides file-level locking capabilities that are essential for the message store. The specific mount options optimize NFS behavior for enterprise messaging workloads, ensuring data consistency and reliability.
 
 #### Without NFS 
 Alternatively, run the following command to create a storage class with Azure Disks
