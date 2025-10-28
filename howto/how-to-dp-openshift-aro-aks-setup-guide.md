@@ -471,6 +471,8 @@ For metrics DP needs prometheus
 
 Note 2: You can also configure observability after creating/registering the Data Plane.
 
+More detailed steps are documented here: [Observability Setup](./how-to-dp-openshift-observability.md) 
+
 ### 9.1. Elastic Stack
 
 Install ECK via OperatorHub:  
