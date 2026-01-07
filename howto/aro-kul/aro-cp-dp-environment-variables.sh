@@ -113,9 +113,8 @@ export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in 
 export CP_MY_DNS_DOMAIN="${CP_INSTANCE_ID}-my.${TP_DOMAIN}" # domain to be used for Control Plane UI
 export CP_TUNNEL_DNS_DOMAIN="${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}" # domain to be used for hybrid connectivity
 
-# Control Plane chart versions
-export CP_PLATFORM_BOOTSTRAP_VERSION="1.11.0"
-export CP_PLATFORM_BASE_VERSION="1.11.0"
+# Control Plane chart versions (unified chart since v1.13.0)
+export CP_TIBCO_CP_BASE_VERSION="1.14.0"
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # storage size for Control Plane components

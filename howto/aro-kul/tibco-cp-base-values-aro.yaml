@@ -1,6 +1,6 @@
-# ⚠️ DEPRECATED: This file is for TIBCO Platform v1.12.0 and earlier
-# For v1.13.0 and above, use tibco-cp-base-values-aro.yaml instead
-# The platform-bootstrap and platform-base charts have been merged into tibco-cp-base
+# Unified TIBCO Control Plane Base values for ARO
+# This file is for TIBCO Platform v1.13.0 and above (tibco-cp-base chart)
+# Combines previous platform-bootstrap and platform-base configurations
 
 global:
   external:
@@ -42,17 +42,64 @@ global:
       fluentbit:
         enabled: false
     serviceAccount: cp1-sa
+
+# Bootstrap components (from platform-bootstrap)
+hybrid-proxy:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+otel-collector:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+resource-set-operator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+router-operator:
+  enabled: true
+  enableWebHooks: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    enabled: true
+    ingressClassName: openshift-default
+    tls:
+      - secretName: custom-my-tls
+        hosts:
+          - '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+    hosts:
+      - host: '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+
+# Base components (from platform-base)
 tibco-cp-messaging:
   enabled: true
   resources:
     requests:
       cpu: 100m
       memory: 128Mi
+
 tp-cp-alertmanager:
   resources:
     requests:
       cpu: 10m
       memory: 32Mi
+
 tp-cp-auditsafe:
   auditsafe:
     resources:
@@ -60,14 +107,17 @@ tp-cp-auditsafe:
         cpu: 250m
         memory: 512Mi
   enabled: true
+
 tp-cp-cli:
   enabled: true
+
 tp-cp-configuration:
   tp-cp-subscription:
     resources:
       requests:
         cpu: 100m
         memory: 128Mi
+
 tp-cp-core:
   cronjobs:
     cpcronjobservice:
@@ -118,6 +168,7 @@ tp-cp-core:
           cpu: 100m
           memory: 256Mi
     replicaCount: 1
+
 tp-cp-core-finops:
   finops-otel-collector:
     resources:
@@ -137,6 +188,7 @@ tp-cp-core-finops:
           cpu: 100m
           memory: 512Mi
     replicaCount: 1
+
 tp-cp-hawk:
   enabled: true
   tp-cp-hawk-infra-querynode:
@@ -144,8 +196,10 @@ tp-cp-hawk:
       requests:
         cpu: 100m
         memory: 512Mi
+
 tp-cp-hawk-recipes:
   enabled: true
+
 tp-cp-infra:
   enabled: true
   resources:
@@ -157,6 +211,7 @@ tp-cp-infra:
       requests:
         cpu: 200m
         memory: 256Mi
+
 tp-cp-integration:
   enabled: true
   tp-cp-bw5ce-utilities:
@@ -188,12 +243,14 @@ tp-cp-integration:
           requests:
             cpu: 100m
             memory: 128Mi
+
 tp-cp-o11y:
   enabled: true
   resources:
     requests:
       cpu: 200m
       memory: 256Mi
+
 tp-cp-prometheus:
   server:
     resources:
@@ -201,7 +258,9 @@ tp-cp-prometheus:
         cpu: 100m
         memory: 512Mi
     retention: 15d
+
 tp-cp-recipes:
   enabled: true
+
 tp-cp-tibcohub-contrib:
   enabled: true
