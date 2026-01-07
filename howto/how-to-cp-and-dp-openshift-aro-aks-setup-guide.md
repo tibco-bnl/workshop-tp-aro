@@ -3,7 +3,13 @@
 ## Original documentation can be found and referred in future here: 
 [ARO docs from tp-helm-charts](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift))
 
-This document is with extra details while following the above document and make all the things working. 
+This document is with extra details while following the above document and make all the things working.
+
+> [!NOTE]
+> **Version 1.14.0 Update**: This document has been updated to reflect the latest TIBCO Platform Control Plane version 1.14.0. Key changes include:
+> - Unified chart deployment using `tibco-cp-base` (previously split between `platform-bootstrap` and `platform-base`)
+> - Updated chart versions and deployment procedures
+> - Based on tp-helm-charts commit c455ffb and later updates 
 
 Note: This document is copy of gh-pages doc from [here:](https://tibco-bnl.github.io/workshop-tibco-platform/docs/howto/how-to-dp-openshift-aro-aks-setup-guide.html#get-openshift-ingress-domain) hence links in table of contents will not work if you are viewing in google docs. 
 
@@ -27,7 +33,9 @@ Note: This document is copy of gh-pages doc from [here:](https://tibco-bnl.githu
   - [Step 8.1: Create Control Plane Namespace and Service Account](#step-81-create-control-plane-namespace-and-service-account)
   - [Step 8.2: Configure Certificates and DNS Records](#step-82-configure-certificates-and-dns-records)
   - [Step 8.3: Generate Session Keys Secret](#step-83-generate-session-keys-secret)
-  - [Step 8.4: Bootstrap Chart Values](#step-84-bootstrap-chart-values)
+  - [Step 8.4: Install TIBCO Control Plane Base Chart](#step-84-install-tibco-control-plane-base-chart)
+  - [Step 8.5: Verify Helm Chart Deployment](#step-85-verify-helm-chart-deployment)
+  - [Step 8.6: Access Control Plane and Retrieve Initial Admin Password](#step-86-access-control-plane-and-retrieve-initial-admin-password)
 - [Step 9: TIBCO Platform Data Plane Setup](#step-9-tibco-platform-data-plane-setup)
   - [Step 9.1: Configure Observability](#step-91-configure-observability)
   - [Step 9.2: Deploy TIBCO Platform Data Plane](#step-92-deploy-tibco-platform-data-plane)
@@ -492,9 +500,8 @@ export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in 
 export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used for Control Plane UI
 export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used for hybrid connectivity
 
-# Control Plane chart versions
-export CP_PLATFORM_BOOTSTRAP_VERSION=1.11.0
-export CP_PLATFORM_BASE_VERSION=1.11.0
+# Control Plane chart versions (unified chart since 1.13.0)
+export CP_TIBCO_CP_BASE_VERSION=1.14.0
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # storage size for Control Plane components
@@ -1022,7 +1029,7 @@ dig +short test.${CP_TUNNEL_DNS_DOMAIN}
 - **Kubernetes secret**: Stores keys securely in the cluster for platform services to access
 - **Service security**: Enables encrypted communication between platform components
 
-This secret is a required prerequisite for the platform-bootstrap chart:
+This secret is a required prerequisite for the tibco-cp-base chart:
 
 ```bash
 # Generate session keys and export as environment variables
@@ -1035,56 +1042,49 @@ kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
   --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
 ```
 
-### Step 8.4: Bootstrap Chart Values
+### Step 8.4: Install TIBCO Control Plane Base Chart
 
-The following values can be stored in a file and passed to the platform-bootstrap chart:
+**Important Note about Chart Evolution:**
+> [!IMPORTANT]
+> Starting from version 1.13.0, the separate `platform-bootstrap` and `platform-base` charts have been merged into a single unified chart called `tibco-cp-base`. This simplifies the installation process and eliminates the need for managing two separate releases. All Control Plane components including infrastructure, routing, hybrid connectivity, and core services are now deployed through this single chart.
+
+**Before installation, ensure the following prerequisites are met:**
+> [!NOTE]
+> Before executing the chart installation, ensure workloads in the cluster can access external resources like Database and Email Server. Also ensure you have:
+> 1. Created the `session-keys` secret (Step 8.3)
+> 2. Created the `cporch-encryption-secret` (from variable export section)
+> 3. Configured database credentials
+> 4. Exported all required variables from Step 7.1
+
+Create the database credentials secret required for the Control Plane:
+
+```bash
+# Create database credentials secret
+kubectl create secret generic ${CP_DB_SECRET_NAME} \
+    --from-literal=db_username=${CP_DB_USERNAME} \
+    --from-literal=db_password=${CP_DB_PASSWORD} \
+    -n ${CP_INSTANCE_ID}-ns
+```
+
+The following values configure the unified Control Plane deployment:
 
 > [!IMPORTANT]
-> These values are for example only.
+> These values are for example only. Adjust based on your requirements.
 
 > [!NOTE]
 > All required environment variables are already defined in [Step 7.1: Export Variables](#step-71-export-variables-for-both-control-plane-and-data-plane). Ensure those variables are exported before running the helm commands below.
+
+**Install the unified tibco-cp-base chart (version 1.14.0):**
 
 #In case you are using helm repo with username and password use following commented line in the command.
 #--username ${TP_CHART_REPO_USER_NAME} --password ${TP_CHART_REPO_TOKEN} \
 
 ```bash
-
-helm upgrade --install --wait --timeout 1h --create-namespace  \
-  -n ${CP_INSTANCE_ID}-ns  platform-bootstrap    ${HELM_URL}/platform-bootstrap  \
-  --version "${CP_PLATFORM_BOOTSTRAP_VERSION}" -f - <<EOF
-global:
-  external:
-    clusterInfo:
-      nodeCIDR: ${TP_NODE_CIDR}
-      podCIDR: ${TP_POD_CIDR}
-      serviceCIDR: ${TP_SERVICE_CIDR}
-    dnsDomain: ${CP_MY_DNS_DOMAIN}
-    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
-    storage:
-      resources:
-        requests:
-          storage: ${CP_STORAGE_SIZE}
-      storageClassName: "${TP_FILE_STORAGE_CLASS}"
-  tibco:
-    containerRegistry:
-      url: "${TP_CONTAINER_REGISTRY_URL}"
-      username: "${TP_CONTAINER_REGISTRY_USER}"
-      password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
-      repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
-    controlPlaneInstanceId: "${CP_INSTANCE_ID}"
-    #createNetworkPolicy: false    
-    logging:
-      fluentbit:
-        enabled: false
-    serviceAccount: ${CP_INSTANCE_ID}-sa                
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" -f - <<EOF
 hybrid-proxy:
   enabled: true
-  enableWebHooks: false
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
   ingress:
     enabled: true
     ingressClassName: ${TP_INGRESS_CLASS}
@@ -1097,26 +1097,18 @@ hybrid-proxy:
         paths:
           - path: /
             pathType: Prefix
-            port: 105        
-otel-collector:
-  enabled: false
-resource-set-operator:
-  enabled: true
-  enableWebHooks: false
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
+            port: 105
 router-operator:
   enabled: true
-  enableWebHooks: false
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
   ingress:
     enabled: true
-    ingressClassName: ${TP_INGRESS_CLASS}   
+    ingressClassName: ${TP_INGRESS_CLASS}
     tls:
       - secretName: ${CP_MY_TLS_SECRET_NAME}
         hosts:
@@ -1126,47 +1118,89 @@ router-operator:
         paths:
           - path: /
             pathType: Prefix
-            port: 100                     
+            port: 100
+resource-set-operator:
+  enabled: true
+# uncomment to enable logging
+# otel-collector:
+#   enabled: true
+global:
+  tibco:
+    createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
+    containerRegistry:
+      url: ${TP_CONTAINER_REGISTRY_URL}
+      username: ${TP_CONTAINER_REGISTRY_USER}
+      password: ${TP_CONTAINER_REGISTRY_PASSWORD}
+      repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}
+    controlPlaneInstanceId: ${CP_INSTANCE_ID}
+    serviceAccount: ${CP_INSTANCE_ID}-sa
+  external:
+    clusterInfo:
+      nodeCIDR: ${TP_NODE_CIDR}
+      podCIDR: ${TP_POD_CIDR}
+      serviceCIDR: ${TP_SERVICE_CIDR}
+    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
+    dnsDomain: ${CP_MY_DNS_DOMAIN}
+    storage:
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: ${TP_FILE_STORAGE_CLASS}
+    # uncomment following section if logging is enabled
+    # logserver:
+    #   endpoint: ${TP_LOGSERVER_ENDPOINT}
+    #   index: ${TP_LOGSERVER_INDEX}
+    #   username: ${TP_LOGSERVER_USERNAME}
+    #   password: ${TP_LOGSERVER_PASSWORD}
 EOF
 ```
-### Step 8.5: Verify Helm Chart Deployments
 
-To check the actual values being used by the platform charts after deployment, you can export their configurations:
+> [!NOTE]
+> The installation may take 15-30 minutes to complete. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
+### Step 8.5: Verify Helm Chart Deployment
 
-**Platform Bootstrap Chart:**
+> [!NOTE]
+> Since version 1.13.0, there is only one unified chart (`tibco-cp-base`) to manage. This eliminates the need to track multiple chart releases.
+
+To check the actual values being used by the Control Plane chart after deployment, you can export its configuration:
+
+**TIBCO Control Plane Base Chart:**
 ```bash
-helm get values platform-bootstrap -n ${CP_INSTANCE_ID}-ns -o yaml > platform-bootstrap-values.yaml
+helm get values tibco-cp-base -n ${CP_INSTANCE_ID}-ns -o yaml > tibco-cp-base-values.yaml
 ```
 
-**Platform Base Chart (after Step 8.7):**
-```bash
-helm get values platform-base -n ${CP_INSTANCE_ID}-ns -o yaml > platform-base-values.yaml
-```
-
-These commands export all the applied configuration values, which can be useful for:
+This command exports all the applied configuration values, which can be useful for:
 
 - Verifying that all your custom values were properly applied
 - Debugging issues related to chart configuration 
 - Creating templates for future deployments
 - Understanding the effective configuration after default values are merged with your overrides
+- Preparing for future upgrades by having a reference of the current configuration
 
 You can also view the values directly in the terminal without saving to a file:
 
 ```bash
-helm get values platform-bootstrap -n ${CP_INSTANCE_ID}-ns -o yaml
-helm get values platform-base -n ${CP_INSTANCE_ID}-ns -o yaml  # After Step 8.7
-```
-### Step 8.6: Create CP Encryption Secret
-> **_NOTE:_** REQUIRED from 1.9.0
-```bash
-oc create secret -n ${CP_INSTANCE_ID}-ns generic cporch-encryption-secret --from-literal=CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c44)
+helm get values tibco-cp-base -n ${CP_INSTANCE_ID}-ns -o yaml
 ```
 
-### Step 8.7: Install Platform Base
-> **_NOTE:_** Before executing base install, ensure workloads in the cluster can access external resources like Database, Email Server
+**Verify the deployment status:**
+```bash
+# Check Helm release status
+helm list -n ${CP_INSTANCE_ID}-ns
+
+# Check pod status
+kubectl get pods -n ${CP_INSTANCE_ID}-ns
+
+# Check for any errors
+kubectl get events -n ${CP_INSTANCE_ID}-ns --sort-by='.lastTimestamp'
+```
+
+### Step 8.6: Access Control Plane and Retrieve Initial Admin Password
+
+After the tibco-cp-base installation completes successfully, you need to retrieve the initial admin password and access the Control Plane.
 
 > [!IMPORTANT]
-> **Admin User Initial Password**: During platform-base installation, the admin user specified does not receive an activation email whether email service is configured or not. Instead, the platform automatically generates a temporary password and stores it in a Kubernetes job called `tp-control-plane-ops-create-admin-user` that runs for only **1 hour**.
+> **Admin User Initial Password**: During tibco-cp-base installation, the admin user specified does not receive an activation email whether email service is configured or not. Instead, the platform automatically generates a temporary password and stores it in a Kubernetes job called `tp-control-plane-ops-create-admin-user` that runs for only **1 hour**.
 > 
 > **Key Points**:
 > - The admin user does not get an activation email (unlike regular users)
@@ -1181,243 +1215,11 @@ oc create secret -n ${CP_INSTANCE_ID}-ns generic cporch-encryption-secret --from
 > 3. **Find initialPassword**: Search for `initialPassword` value in the logs
 > 4. **Decode if needed**: `echo '"<initialPassword>"' | jq -r .`
 > 
-> **Reference**: [TIBCO Platform Administration - Signing to Platform Console](https://docs.tibco.com/pub/platform-cp/1.10.0/doc/html/Administration/signing-to-platform-console.htm)
+> **Reference**: [TIBCO Platform Administration - Signing to Platform Console](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Administration/signing-to-platform-console.htm)
 
-> [!NOTE]
-> All required environment variables are already defined in [Step 7.1: Export Variables](#step-71-export-variables-for-both-control-plane-and-data-plane). Ensure those variables are exported before running the commands below.
+#### 8.6.1: Retrieve Initial Admin Password
 
-```bash
-#--username ${TP_CHART_REPO_USER_NAME} --password ${TP_CHART_REPO_TOKEN} \
-
-# Create database credentials secret required for platform-base
-kubectl create secret generic ${CP_DB_SECRET_NAME} \
-    --from-literal=db_username=${CP_DB_USERNAME} \
-    --from-literal=db_password=${CP_DB_PASSWORD} \
-    -n ${CP_INSTANCE_ID}-ns
-
-helm upgrade --install --wait --timeout 1h --create-namespace -n ${CP_INSTANCE_ID}-ns  platform-base    ${HELM_URL}/platform-base  \
-   --version "${CP_PLATFORM_BASE_VERSION}" -f - <<EOF
-global:
-  tibco:
-    logging:
-      fluentbit:
-        enabled: false  
-    containerRegistry:
-      url: "${TP_CONTAINER_REGISTRY_URL}"
-      username: "${TP_CONTAINER_REGISTRY_USER}"
-      password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
-      repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
-    controlPlaneInstanceId: "${CP_INSTANCE_ID}"
-    #createNetworkPolicy: false    
-    serviceAccount: ${CP_INSTANCE_ID}-sa       
-    #helm:
-      #url: ${TP_CHART_REGISTRY}
-      #repo: ${TP_CHART_REPO}
-      #username: ${TP_CHART_REPO_USER_NAME}
-      #password: ${TP_CHART_REPO_TOKEN}  
-    #db_ssl_root_cert_secretname: "${CP_DB_SSL_ROOT_CERT_SECRET_NAME}"
-    #db_ssl_root_cert_filename: "${CP_DB_SSL_ROOT_CERT_FILENAME}"
-  external:
-    cpEncryptionSecretName: cporch-encryption-secret
-    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET_KEY 
-    clusterInfo:
-      nodeCIDR: ${TP_NODE_CIDR}
-      podCIDR: ${TP_POD_CIDR}
-      serviceCIDR: ${TP_SERVICE_CIDR}
-    dnsDomain: ${CP_MY_DNS_DOMAIN}
-    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
-    db_host: "${CP_DB_HOST}"
-    db_name: "${CP_DB_NAME}"
-    db_password: "${CP_DB_PASSWORD}"
-    db_port: "${CP_DB_PORT}"
-    db_secret_name: "${CP_DB_SECRET_NAME}"
-    db_ssl_mode: "${CP_DB_SSL_MODE}"
-    db_username: "${CP_DB_USERNAME}"
-    emailServerType: ${CP_EMAIL_SERVER_TYPE}    
-    emailServer:
-      smtp:
-        server: "${CP_EMAIL_SMTP_SERVER}"
-        port: "${CP_EMAIL_SMTP_PORT}"
-        username: "${CP_EMAIL_SMTP_USERNAME}"
-        password: "${CP_EMAIL_SMTP_PASSWORD}"
-    admin:
-      email: ${CP_ADMIN_EMAIL}
-      firstname: "${CP_ADMIN_FIRSTNAME}"
-      lastname: "${CP_ADMIN_LASTNAME}"
-      customerID: "${CP_ADMIN_CUSTOMER_ID}"     
-tp-cp-infra:
-  enabled: true
-  resources:
-    infra-compute-services:
-      requests:
-        cpu: 200m
-        memory: 256Mi
-    infra-alerts-services:
-      requests:
-        cpu: 200m
-        memory: 256Mi
-tp-cp-o11y:
-  enabled: true
-  resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-tp-cp-configuration:
-  tp-cp-subscription:
-    resources:
-      requests:
-       cpu: 100m
-       memory: 128Mi
-tp-cp-recipes:
-  enabled: true
-tp-cp-core:
-  cronjobs:
-    cpcronjobservice:
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-    replicaCount: 1
-  identity-management:
-    idm:
-      resources:
-        requests:
-          cpu: 100m
-          memory: 1024Mi
-    replicaCount: 1
-  identity-provider:
-    replicaCount: 1
-    tpcpidpservice:
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-  orchestrator:
-    cporchservice:
-      resources:
-        requests:
-          cpu: 500m
-          memory: 256Mi
-    replicaCount: 1
-  pengine:
-    replicaCount: 1
-    tpcppengineservice:
-      resources:
-        requests:
-          cpu: 300m
-          memory: 128Mi
-  user-subscriptions:
-    cpusersubservice:
-      resources:
-        requests:
-          cpu: 500m
-          memory: 128Mi
-    replicaCount: 1
-  web-server:
-    cpwebserver:
-      resources:
-        requests:
-          cpu: 100m
-          memory: 256Mi
-    replicaCount: 1
-tp-cp-core-finops:
-  finops-otel-collector:
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-  finops-service:
-    finopsservice:
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi
-  monitoring-service:
-    monitoringservice:
-      resources:
-        requests:
-          cpu: 100m
-          memory: 512Mi
-    replicaCount: 1   
-tp-cp-integration:
-  enabled: true
-  tp-cp-integration-common:
-    fileserver:
-      enabled: true
-      resources:
-        requests:
-          cpu: 100m
-          memory: 128Mi  
-  tp-cp-integration-bw:
-    enabled: true  
-    bw-webserver:
-      bwwebserver:
-        resources:
-          requests:
-            cpu: 100m
-            memory: 256Mi
-  tp-cp-integration-flogo:
-    enabled: true
-    flogo-webserver:
-      flogowebserver:
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-  tp-cp-bwce-utilities:
-    enabled: true
-  tp-cp-bw5ce-utilities:
-    enabled: true    
-  tp-cp-flogo-utilities:
-    enabled: true         
-tp-cp-tibcohub-contrib:
-  enabled: true
-tibco-cp-messaging:
-  enabled: true
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-tp-cp-hawk-recipes:
-  enabled: true
-tp-cp-hawk:
-  enabled: true
-  tp-cp-hawk-infra-querynode:  
-    resources:
-      requests:
-        cpu: 100m
-        memory: 512Mi
-tp-cp-cli:
-  enabled: true
-tp-cp-alertmanager:
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-tp-cp-prometheus:
-  server:
-    retention: "15d"
-    resources:
-      requests:
-        cpu: 100m
-        memory: 512Mi
-tp-cp-auditsafe:
-  enabled: true
-  auditsafe:
-    resources:
-      requests:
-        cpu: 250m
-        memory: 512Mi
-EOF
-```
-
-### Step 8.8: Access Control Plane and Retrieve Initial Admin Password
-
-After the platform-base installation completes successfully, you need to retrieve the initial admin password and access the Control Plane.
-
-#### 8.8.1: Retrieve Initial Admin Password
-
-The platform-base chart creates a temporary job that generates the initial admin password. This job is only available for **1 hour** after installation and is then automatically deleted.
+The tibco-cp-base chart creates a temporary job that generates the initial admin password. This job is only available for **1 hour** after installation and is then automatically deleted.
 
 > [!IMPORTANT]
 > **Critical Timing**: The `tp-control-plane-ops-create-admin-user` job is deleted after one hour of deployment. You must retrieve the initial password before this time expires.
@@ -1449,7 +1251,7 @@ echo '"<initialPassword>"' | jq -r .
 - Admin email: `${CP_ADMIN_EMAIL}` (e.g., cp-test@tibco.com)
 - Initial password: `<generated-password>`
 
-#### 8.8.2: Access Control Plane UI
+#### 8.6.2: Access Control Plane UI
 
 Once you have the initial password, access the Control Plane:
 
@@ -1457,7 +1259,7 @@ Once you have the initial password, access the Control Plane:
 
 Example: `https://admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
 
-#### 8.8.3: First Login Steps
+#### 8.6.3: First Login Steps
 
 1. **Navigate to Control Plane URL**: Open the Control Plane URL in your browser
 2. **Select Identity Provider**: For first-time access, click on **"Using Default IdP"** option
@@ -1471,7 +1273,7 @@ Example: `https://admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
 > [!NOTE]
 > **Admin User Behavior**: The admin user specified during Control Plane installation does not receive an activation email, regardless of whether email service is configured. The password must be retrieved from the job logs as described above.
 
-#### 8.8.4: Troubleshooting Access Issues
+#### 8.6.4: Troubleshooting Access Issues
 
 **If you cannot retrieve the password (job expired)**:
 ```bash
@@ -1515,9 +1317,9 @@ kubectl get jobs -n ${CP_INSTANCE_ID}-ns
 
 ### Next Steps for Control Plane
 
-After completing the platform-base installation:
+After completing the tibco-cp-base installation:
 
-1. **Retrieve initial admin password**: Follow [Step 8.8.1](#881-retrieve-initial-admin-password) to get the temporary password from the job logs
+1. **Retrieve initial admin password**: Follow [Step 8.6.1](#861-retrieve-initial-admin-password) to get the temporary password from the job logs
 2. **Access Control Plane UI**: Use the URL `https://admin.${CP_MY_DNS_DOMAIN}` with the admin credentials
 3. **First login requirements**: Use "Default IdP" option and complete mandatory password reset
 4. **Platform administration**: After successful login, you can:
@@ -2115,8 +1917,7 @@ This comprehensive checklist includes all the objects, resources, and configurat
 | **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
 |:----------------|:---------------------|:---------|:------------|:-----------|
 | Namespace | `${CP_INSTANCE_ID}-ns` | 8.1 | Control Plane isolation namespace | ☐ |
-| Helm Release | `platform-bootstrap` | 8.4 | Control Plane bootstrap components | ☐ |
-| Helm Release | `platform-base` | 8.6 | Control Plane core components | ☐ |
+| Helm Release | `tibco-cp-base` | 8.4 | Control Plane unified chart (v1.14.0) | ☐ |
 | Ingress Route | `*.${CP_MY_DNS_DOMAIN}` | 8.4 | Control Plane UI access | ☐ |
 | Ingress Route | `*.${CP_TUNNEL_DNS_DOMAIN}` | 8.4 | Hybrid connectivity access | ☐ |
 
