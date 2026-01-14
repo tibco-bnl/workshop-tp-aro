@@ -436,6 +436,25 @@ This section configures the infrastructure components that will be shared betwee
 
 The following variables are required for both Control Plane and Data Plane setup and should be exported in addition to the variables from Step 1. This comprehensive list consolidates all environment variables needed throughout the deployment process.
 
+> [!TIP]
+> **Centralized Environment Variables Script**: For easier management and maintenance, all environment variables have been consolidated into a single script file that you can download and source:
+> 
+> **GitHub Reference**: [aks-aro-openshift-env-variables.sh](https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aks-aro-openshift-env-variables.sh)
+>
+> To use the script:
+> ```bash
+> # Download the script
+> curl -O https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aks-aro-openshift-env-variables.sh
+> 
+> # Make it executable
+> chmod +x aks-aro-openshift-env-variables.sh
+> 
+> # Review and customize the values in the script, then source it
+> source aks-aro-openshift-env-variables.sh
+> ```
+
+Alternatively, you can export the variables manually as shown below:
+
 ```bash
 # ========================================
 # AZURE AND CLUSTER INFRASTRUCTURE VARIABLES
@@ -1201,8 +1220,8 @@ The following values configure the unified Control Plane deployment:
 For a comprehensive deployment that combines all settings from the legacy `platform-bootstrap` and `platform-base` charts, use the merged values file:
 
 ```bash
-# Navigate to the values file directory
-cd /Users/kul/git/tib/workshop-tp-aro/howto/aro-kul/
+# Download the merged values file from GitHub
+curl -o tibco-cp-base-values-merged.yaml https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-merged.yaml
 
 # Install using the merged values file
 helm upgrade --install --wait --timeout 1h --create-namespace \
@@ -1218,7 +1237,12 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
 > - Proper resource requests and replica counts from legacy charts
 > - Complete configuration with inline documentation
 >
-> This file is located at: `/Users/kul/git/tib/workshop-tp-aro/howto/aro-kul/tibco-cp-base-values-merged.yaml`
+> **GitHub Reference**: [tibco-cp-base-values-merged.yaml](https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aro-kul/tibco-cp-base-values-merged.yaml)
+>
+> You can download it using:
+> ```bash
+> curl -O https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-merged.yaml
+> ```
 
 **Alternative: Inline values (minimal configuration)**
 
