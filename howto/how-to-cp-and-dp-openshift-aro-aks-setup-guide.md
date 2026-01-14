@@ -94,6 +94,25 @@ cd tp-helm-charts
 
 This will download the latest charts and scripts required for the setup.
 
+## Add TIBCO Platform Helm Repository
+
+Before deploying any TIBCO Platform components, add the TIBCO Platform Helm chart repository:
+
+```bash
+# Add the TIBCO Platform Helm repository
+export HELM_URL="tibco-platform-public"
+helm repo add ${HELM_URL} https://tibcosoftware.github.io/tp-helm-charts
+
+# Update helm repositories to get the latest chart versions
+helm repo update
+
+# Verify the repository was added successfully
+helm search repo ${HELM_URL}/tibco-cp-base --versions | head -5
+```
+
+> [!NOTE]
+> The `HELM_URL` variable is used throughout this guide for helm chart installations. Ensure it is exported in your shell session before proceeding with deployments.
+
 ## Using a Prebuilt Docker Container for CLI Tools
 
 All CLI commands in this guide can be executed inside a prebuilt Docker container that includes the required tools. This approach ensures a consistent environment and avoids local installation issues.
@@ -699,6 +718,103 @@ oc label namespace tibco-ext networking.platform.tibco.com/non-cp-ns=enable --ov
 > [!IMPORTANT]
 > Please note that the PostgreSQL installed above does not enforce SSL by default. It has to be manually configured.
 
+#### Alternative: Using Azure Database for PostgreSQL (SaaS)
+
+Instead of deploying PostgreSQL on the cluster, you can use **Azure Database for PostgreSQL Flexible Server** as a managed SaaS solution. This provides better scalability, automated backups, and enterprise-grade security.
+
+**Prerequisites for Azure PostgreSQL:**
+1. Azure Database for PostgreSQL Flexible Server instance created
+2. Firewall rules configured to allow ARO cluster access
+3. SSL/TLS certificate downloaded for secure connections
+
+**Step 1: Download Baltimore CyberTrust Root Certificate**
+
+Azure PostgreSQL requires SSL connections using the Baltimore CyberTrust Root certificate:
+
+```bash
+# Download the Baltimore CyberTrust Root certificate
+curl -o BaltimoreCyberTrustRoot.crt.pem https://cacerts.digicert.com/BaltimoreCyberTrustRoot.crt.pem
+
+# Verify the certificate was downloaded
+ls -lh BaltimoreCyberTrustRoot.crt.pem
+```
+
+**Step 2: Create Kubernetes Secret for SSL Certificate**
+
+Create a secret containing the SSL certificate that will be used by the Control Plane to connect to Azure PostgreSQL:
+
+```bash
+# Create the SSL certificate secret
+kubectl create secret generic azure-postgres-ssl-cert \
+  --from-file=BaltimoreCyberTrustRoot.crt.pem=BaltimoreCyberTrustRoot.crt.pem \
+  -n ${CP_INSTANCE_ID}-ns
+
+# Verify the secret was created
+kubectl get secret azure-postgres-ssl-cert -n ${CP_INSTANCE_ID}-ns
+```
+
+**Step 3: Update Environment Variables for Azure PostgreSQL**
+
+Export the following variables with your Azure PostgreSQL connection details:
+
+```bash
+# Azure PostgreSQL connection details
+export CP_DB_HOST="<your-postgres-server>.postgres.database.azure.com"  # e.g., mypostgres.postgres.database.azure.com
+export CP_DB_NAME="postgres"  # or your database name
+export CP_DB_USERNAME="<admin-user>@<server-name>"  # e.g., adminuser@mypostgres
+export CP_DB_PASSWORD="<your-password>"  # Your PostgreSQL password
+export CP_DB_PORT="5432"
+export CP_DB_SECRET_NAME="provider-cp-database-credentials"
+
+# SSL Configuration for Azure PostgreSQL
+export CP_DB_SSL_MODE="require"  # Options: disable, require, verify-ca, verify-full
+export CP_DB_SSL_ROOT_CERT_SECRET_NAME="azure-postgres-ssl-cert"
+export CP_DB_SSL_ROOT_CERT_FILENAME="BaltimoreCyberTrustRoot.crt.pem"
+```
+
+**SSL Mode Options:**
+- `disable`: No SSL (not recommended for production)
+- `require`: SSL connection required but does not verify the certificate
+- `verify-ca`: SSL connection with certificate verification (recommended)
+- `verify-full`: SSL connection with full certificate and hostname verification (most secure)
+
+**Step 4: Configure Control Plane Values for SSL**
+
+When deploying the Control Plane with Azure PostgreSQL, ensure your values file includes the SSL certificate configuration:
+
+```yaml
+global:
+  external:
+    db_ssl_mode: ${CP_DB_SSL_MODE}  # require, verify-ca, or verify-full
+  tibco:
+    db_ssl_root_cert_secretname: ${CP_DB_SSL_ROOT_CERT_SECRET_NAME}
+    db_ssl_root_cert_filename: ${CP_DB_SSL_ROOT_CERT_FILENAME}
+```
+
+**Step 5: Test PostgreSQL Connection**
+
+Verify connectivity to Azure PostgreSQL before deploying the Control Plane:
+
+```bash
+# Install PostgreSQL client tools (if not already installed)
+apk add postgresql-client  # For Alpine
+# OR
+apt-get install postgresql-client  # For Debian/Ubuntu
+
+# Test connection to Azure PostgreSQL
+PGSSLMODE=${CP_DB_SSL_MODE} psql "host=${CP_DB_HOST} port=${CP_DB_PORT} dbname=${CP_DB_NAME} user=${CP_DB_USERNAME} sslrootcert=BaltimoreCyberTrustRoot.crt.pem"
+
+# If connection is successful, you'll see the PostgreSQL prompt
+# Type \q to exit
+```
+
+**Reference Documentation:**
+- [Configure SSL on PostgreSQL Client](https://learn.microsoft.com/en-us/azure/postgresql/security/security-tls#configure-ssl-on-the-client)
+- [Azure Database for PostgreSQL SSL Connectivity](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-connect-tls-ssl)
+
+> [!NOTE]
+> When using Azure PostgreSQL, skip the on-premises PostgreSQL installation (Step 7.4) and proceed directly to Step 7.5.
+
 ### Step 7.5: Install and Access Email Server (MailDev)
 
 **Why this step is needed:** TIBCO Control Plane requires an SMTP server to send email notifications for:
@@ -818,6 +934,9 @@ oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:
 
 These permissions ensure that Control Plane components can access required resources and run with the security context defined in the custom `tp-scc` we created earlier, which provides the minimum required privileges while maintaining security best practices.
 
+> [!IMPORTANT]
+> **Troubleshooting SCC Permissions**: If you encounter pod creation errors with messages like "forbidden: unable to validate against any security context constraint", refer to the [SCC Permissions Troubleshooting Guide](aro-kul/troubleshooting-scc-permissions.md) for detailed resolution steps. This is a common issue that occurs when SCC permissions are not properly granted before deployment.
+
 ### Step 8.2: Configure Certificates and DNS Records
 
 **Why this step is needed:** The Control Plane requires secure HTTPS communication for:
@@ -859,6 +978,9 @@ If you are using network policies, to ensure that network traffic is allowed fro
 ```bash
 oc label namespace openshift-ingress networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
 ```
+
+> [!NOTE]
+> **Windows Users**: If you are running this setup on a Windows environment, refer to the comprehensive [Windows Certificate and DNS Setup Guide](aro-kul/windows-certificate-dns-setup-guide.md) which covers certificate generation using Docker Desktop, WSL2, and PowerShell native methods.
 
 #### Install Certbot (Alpine Docker)
 
@@ -1076,8 +1198,31 @@ The following values configure the unified Control Plane deployment:
 
 **Install the unified tibco-cp-base chart (version 1.14.0):**
 
-#In case you are using helm repo with username and password use following commented line in the command.
-#--username ${TP_CHART_REPO_USER_NAME} --password ${TP_CHART_REPO_TOKEN} \
+For a comprehensive deployment that combines all settings from the legacy `platform-bootstrap` and `platform-base` charts, use the merged values file:
+
+```bash
+# Navigate to the values file directory
+cd /Users/kul/git/tib/workshop-tp-aro/howto/aro-kul/
+
+# Install using the merged values file
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-merged.yaml
+```
+
+> [!TIP]
+> **About the Merged Values File**: The `tibco-cp-base-values-merged.yaml` file combines:
+> - All bootstrap components (hybrid-proxy, router-operator, resource-set-operator)
+> - All base components (tp-cp-core, tp-cp-integration, tp-cp-hawk, etc.)
+> - Proper resource requests and replica counts from legacy charts
+> - Complete configuration with inline documentation
+>
+> This file is located at: `/Users/kul/git/tib/workshop-tp-aro/howto/aro-kul/tibco-cp-base-values-merged.yaml`
+
+**Alternative: Inline values (minimal configuration)**
+
+If you prefer to use inline values for a simpler deployment, you can use the following command:
 
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace \

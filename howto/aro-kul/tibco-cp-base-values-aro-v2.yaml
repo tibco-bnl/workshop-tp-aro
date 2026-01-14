@@ -1,0 +1,622 @@
+# TIBCO Control Plane Base values for ARO - Version 2
+# Generated from environment variables and default values
+# This file is for TIBCO Platform v1.14.0 (tibco-cp-base chart)
+# Source: https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/charts/tibco-cp-base/values.yaml
+# Environment Variables: howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide.md
+
+# ========================================
+# GLOBAL CONFIGURATION
+# ========================================
+global:
+  # ========================================
+  # EXTERNAL CONFIGURATION
+  # ========================================
+  external:
+    # Admin user configuration
+    admin:
+      customerID: nxp-customer-id
+      email: cp-test@tibco.com
+      firstname: cp-test
+      lastname: cp-test
+    
+    # Cluster network information
+    clusterInfo:
+      nodeCIDR: 10.5.2.0/23        # TP_NODE_CIDR (Worker subnet)
+      podCIDR: 10.128.0.0/14        # TP_POD_CIDR
+      serviceCIDR: 172.30.0.0/16    # TP_SERVICE_CIDR
+    
+    # Encryption configuration
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET_KEY
+    cpEncryptionSecretName: cporch-encryption-secret
+    
+    # Database configuration
+    db_host: postgresql.tibco-ext.svc.cluster.local
+    db_master_writer_host: ""
+    db_local_reader_host: ""
+    db_name: postgres
+    db_password: postgres
+    db_port: "5432"
+    db_secret_name: provider-cp-database-credentials
+    db_ssl_mode: disable
+    db_username: postgres
+    db_ssl_root_cert: ""
+    
+    # DNS configuration
+    dnsDomain: cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro       # CP_MY_DNS_DOMAIN
+    dnsTunnelDomain: cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro  # CP_TUNNEL_DNS_DOMAIN
+    
+    # Email server configuration (MailDev for development)
+    emailServer:
+      smtp:
+        password: ""
+        port: "1025"
+        server: development-mailserver.tibco-ext.svc.cluster.local
+        username: ""
+    emailServerType: smtp
+    
+    # Environment
+    environment: production
+  
+  # ========================================
+  # TIBCO PLATFORM CONFIGURATION
+  # ========================================
+  tibco:
+    # Container registry configuration
+    containerRegistry:
+      password: ""  # Set your container registry password
+      repository: tibco-platform-docker-prod  # TP_CONTAINER_REGISTRY_REPOSITORY
+      url: csgprdeuwrepoedge.jfrog.io        # TP_CONTAINER_REGISTRY_URL
+      username: ""  # Set your container registry username
+      certificateSecret: ""
+    
+    # Control plane instance identifier
+    controlPlaneInstanceId: cp1  # CP_INSTANCE_ID (max 5 alphanumeric chars)
+    
+    # Logging configuration
+    logging:
+      fluentbit:
+        enabled: false
+        image:
+          name: "common-fluentbit"
+          registry: ""
+          repo: ""
+          tag: 4.1.0
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+      repository: "tibco-platform-docker-prod"
+    
+    # Service account
+    serviceAccount: cp1-sa
+    
+    # Resource constraints
+    enableResourceConstraints: true
+    
+    # Single namespace mode
+    useSingleNamespace: true
+    
+    # Self-hosted deployment flag
+    self_hosted_deployment: true
+    
+    # Proxy configuration
+    proxy:
+      httpProxy: ""
+      httpsProxy: ""
+      noProxy: ""
+    
+    # FinOps configuration
+    finops: "disable"
+    
+    # Database schema management
+    manageDbSchema: true
+    
+    # RBAC configuration
+    rbac:
+      # Create RBAC for base resources
+      infra: true
+    
+    # Is this a replica region
+    is_replica_region: false
+    
+    # Network policy configuration
+    createNetworkPolicy: false  # TP_ENABLE_NETWORK_POLICY
+    networkPolicy:
+      # Create deprecated network policies
+      createDeprecatedPolicies: true
+      # Enable or disable the creation of cluster-wide network policies
+      createClusterScopePolicies: true
+      # Enable or disable the creation of internet-facing network policies
+      createInternetScopePolicies: true
+      
+      # Network policies for access to the database
+      database:
+        CIDR: ""
+        port: ""
+      
+      # Network policies for access to the log server
+      logServer:
+        CIDR: ""
+        port: ""
+      
+      # Network policies for access to the container registry
+      containerRegistry:
+        CIDR: ""
+        port: ""
+      
+      # Network policies for access to the email server
+      emailServer:
+        CIDR: ""
+        port: ""
+      
+      # Network policies for access to the NLB (hybrid connectivity)
+      hybridConnectivity: []
+      
+      # Network policies for access to the proxy
+      proxy:
+        CIDR: ""
+        port: ""
+      
+      # Network policies for access to the Kubernetes API server
+      kubeApiServer:
+        CIDR: ""
+        port: ""
+      
+      # Network policies for access kube-dns
+      kubeDns:
+        egress:
+        - to:
+          - namespaceSelector: {}
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+          ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+    
+    # Storage configuration
+    # storageClass: ""  # Uncomment and set if you want to override default storage class
+    # storageClassPostgres: ""  # Uncomment and set for PostgreSQL specific storage class
+
+# ========================================
+# SESSION KEYS CONFIGURATION
+# ========================================
+# Session keys for authentication and encryption
+# These secrets should be created in the same namespace as tibco-cp-base
+sessionKeys:
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
+
+# ========================================
+# BOOTSTRAP COMPONENTS
+# ========================================
+# Hybrid proxy for hybrid connectivity
+hybrid-proxy:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# OpenTelemetry collector
+otel-collector:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Resource set operator
+resource-set-operator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Router operator with ingress configuration
+router-operator:
+  enabled: true
+  enableWebHooks: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  ingress:
+    enabled: true
+    ingressClassName: openshift-default  # TP_INGRESS_CLASS for OpenShift
+    tls:
+      - secretName: custom-my-tls         # CP_MY_TLS_SECRET_NAME
+        hosts:
+          - '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+    hosts:
+      - host: '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+
+# ========================================
+# CORE PLATFORM COMPONENTS
+# ========================================
+# TIBCO CLI
+tp-cp-cli:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Prometheus for monitoring
+tp-cp-prometheus:
+  enabled: true
+  server:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1024Mi
+    retention: 15d
+
+# Observability stack
+tp-cp-o11y:
+  enabled: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+
+# Configuration and subscription management
+tp-cp-configuration:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+  tp-cp-subscription:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Messaging infrastructure
+tibco-cp-messaging:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Alert manager
+tp-cp-alertmanager:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 128Mi
+
+# Audit safe for audit logging
+tp-cp-auditsafe:
+  enabled: true
+  auditsafe:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1024Mi
+
+# ========================================
+# CONTROL PLANE CORE SERVICES
+# ========================================
+tp-cp-core:
+  # Cronjob service
+  cronjobs:
+    cpcronjobservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+    replicaCount: 1
+  
+  # Identity management
+  identity-management:
+    replicaCount: 1
+    idm:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 1024Mi
+        limits:
+          cpu: 500m
+          memory: 2048Mi
+  
+  # Identity provider
+  identity-provider:
+    replicaCount: 1
+    tpcpidpservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+  
+  # Orchestrator
+  orchestrator:
+    replicaCount: 1
+    cporchservice:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 256Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
+  
+  # Provisioning engine
+  pengine:
+    replicaCount: 1
+    tpcppengineservice:
+      resources:
+        requests:
+          cpu: 300m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+  
+  # User subscriptions
+  user-subscriptions:
+    replicaCount: 1
+    cpusersubservice:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 128Mi
+        limits:
+          cpu: 1000m
+          memory: 256Mi
+  
+  # Web server (Control Plane UI)
+  web-server:
+    replicaCount: 1
+    cpwebserver:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 200m
+          memory: 512Mi
+
+# ========================================
+# FINOPS SERVICES
+# ========================================
+tp-cp-core-finops:
+  # FinOps OpenTelemetry collector
+  finops-otel-collector:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  
+  # FinOps service
+  finops-service:
+    finopsservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+  
+  # Monitoring service
+  monitoring-service:
+    replicaCount: 1
+    monitoringservice:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          cpu: 200m
+          memory: 1024Mi
+
+# ========================================
+# HAWK (OBSERVABILITY)
+# ========================================
+tp-cp-hawk:
+  enabled: true
+  tp-cp-hawk-infra-querynode:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1024Mi
+
+tp-cp-hawk-recipes:
+  enabled: true
+
+# ========================================
+# INFRASTRUCTURE SERVICES
+# ========================================
+tp-cp-infra:
+  enabled: true
+  resources:
+    infra-alerts-services:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    infra-compute-services:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# ========================================
+# INTEGRATION CAPABILITIES
+# ========================================
+tp-cp-integration:
+  enabled: true
+  
+  # BW5 CE utilities
+  tp-cp-bw5ce-utilities:
+    enabled: true
+  
+  # BWCE utilities
+  tp-cp-bwce-utilities:
+    enabled: true
+  
+  # Flogo utilities
+  tp-cp-flogo-utilities:
+    enabled: true
+  
+  # BusinessWorks integration
+  tp-cp-integration-bw:
+    enabled: true
+    bw-webserver:
+      bwwebserver:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
+  
+  # Integration common services (file server)
+  tp-cp-integration-common:
+    fileserver:
+      enabled: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+  
+  # Flogo integration
+  tp-cp-integration-flogo:
+    enabled: true
+    flogo-webserver:
+      flogowebserver:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+# ========================================
+# RECIPES AND EXTENSIONS
+# ========================================
+tp-cp-recipes:
+  enabled: true
+
+tp-cp-tibcohub-contrib:
+  enabled: true
+
+# ========================================
+# PERSISTENT VOLUME CLAIMS CONFIGURATION
+# ========================================
+# Uncomment and configure if you need custom PVC settings
+# tp-cp-core:
+#   pengine:
+#     volumes:
+#       plugins:
+#         volumeName: "plugins-volume"
+#         storageClassName: "azure-files-sc"
+#         pvcName: "plugins-pvc"
+#         storage: "10Gi"
+
+# ========================================
+# NOTES
+# ========================================
+# 1. Update container registry credentials before deployment:
+#    - global.tibco.containerRegistry.username
+#    - global.tibco.containerRegistry.password
+#
+# 2. Create required secrets before deployment:
+#    - session-keys (TSC_SESSION_KEY, DOMAIN_SESSION_KEY)
+#    - custom-my-tls (TLS certificate for *.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro)
+#    - custom-tunnel-tls (TLS certificate for *.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro)
+#    - provider-cp-database-credentials (database credentials)
+#    - cporch-encryption-secret (encryption key)
+#
+# 3. Network CIDRs are configured for ARO cluster:
+#    - Node CIDR: 10.5.2.0/23 (Worker subnet)
+#    - Pod CIDR: 10.128.0.0/14 (OpenShift pod network)
+#    - Service CIDR: 172.30.0.0/16 (OpenShift service network)
+#
+# 4. DNS domains must be configured in Azure DNS:
+#    - cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro (Control Plane UI)
+#    - cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro (Hybrid connectivity)
+#
+# 5. Storage classes referenced:
+#    - Default OpenShift storage for most components
+#    - azure-files-sc for shared storage (if needed)
+#    - azure-disk-sc for block storage (if needed)
+#
+# 6. This configuration is optimized for ARO (OpenShift) on Azure with:
+#    - Ingress class: openshift-default
+#    - Security context constraints: tp-scc (must be created)
+#    - Service account: cp1-sa (auto-created by chart)
