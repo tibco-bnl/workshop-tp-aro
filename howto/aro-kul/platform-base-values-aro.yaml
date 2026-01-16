@@ -13,7 +13,7 @@ global:
       nodeCIDR: 10.5.2.0/23
       podCIDR: 10.128.0.0/14
       serviceCIDR: 172.30.0.0/16
-    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET_KEY
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
     cpEncryptionSecretName: cporch-encryption-secret
     db_host: postgresql.tibco-ext.svc.cluster.local
     db_name: postgres

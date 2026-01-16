@@ -104,7 +104,7 @@ if ! kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns &> /dev
   echo "Creating encryption secret..."
   
   kubectl create secret generic cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns \
-    --from-literal=CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 32)
+    --from-literal=CP_ENCRYPTION_SECRET=$(openssl rand -base64 32)
   
   echo "Encryption secret created successfully."
 fi
@@ -146,7 +146,7 @@ global:
   external:
     # Encryption configuration
     cpEncryptionSecretName: cporch-encryption-secret
-    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET_KEY
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
     
     # Cluster network information
     clusterInfo:

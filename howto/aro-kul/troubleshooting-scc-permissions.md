@@ -225,7 +225,7 @@ kubectl create secret generic ${CP_DB_SECRET_NAME} \
 
 # Encryption secret
 kubectl create secret generic cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns \
-  --from-literal=CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 32)
+  --from-literal=CP_ENCRYPTION_SECRET=$(openssl rand -base64 32)
 ```
 
 ### 6. Verify Prerequisites
