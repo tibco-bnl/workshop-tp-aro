@@ -1,0 +1,479 @@
+# ==============================================================================
+# TIBCO Control Plane Base - Corrected Values File
+# ==============================================================================
+# For tibco-cp-base helm chart version 1.14.0
+# This file is validated against the actual chart schema
+# GitHub Reference: https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aro-kul/tibco-cp-base-values-corrected.yaml
+# ==============================================================================
+
+# ==============================================================================
+# PREREQUISITES - Run these commands first
+# ==============================================================================
+# 1. Create session keys secret:
+#    export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+#    export DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+#    kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
+#      --from-literal=TSC_SESSION_KEY=${TSC_SESSION_KEY} \
+#      --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
+#
+# 2. Create database credentials secret:
+#    kubectl create secret generic ${CP_DB_SECRET_NAME} \
+#      --from-literal=db_username=${CP_DB_USERNAME} \
+#      --from-literal=db_password=${CP_DB_PASSWORD} \
+#      -n ${CP_INSTANCE_ID}-ns
+#
+# 3. Create encryption secret:
+#    kubectl create secret generic cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns \
+#      --from-literal=CP_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 32)
+
+# ==============================================================================
+# GLOBAL CONFIGURATION
+# ==============================================================================
+global:
+  # External configuration for database, email, admin, etc.
+  external:
+    # ==================================
+    # ENCRYPTION CONFIGURATION
+    # ==================================
+    cpEncryptionSecretName: cporch-encryption-secret
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET_KEY
+    
+    # ==================================
+    # CLUSTER NETWORK INFORMATION
+    # ==================================
+    clusterInfo:
+      nodeCIDR: ${TP_NODE_CIDR}      # e.g., 10.5.2.0/23
+      podCIDR: ${TP_POD_CIDR}        # e.g., 10.128.0.0/14
+      serviceCIDR: ${TP_SERVICE_CIDR} # e.g., 172.30.0.0/16
+    
+    # ==================================
+    # DNS DOMAINS
+    # ==================================
+    dnsDomain: ${CP_MY_DNS_DOMAIN}          # e.g., cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN} # e.g., cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    
+    # ==================================
+    # STORAGE CONFIGURATION
+    # ==================================
+    storage:
+      pvcName: "control-plane-pvc"
+      resources:
+        requests:
+          storage: ${CP_STORAGE_SIZE} # e.g., 10Gi
+      storageClassName: ${TP_FILE_STORAGE_CLASS} # e.g., azure-files-sc
+    
+    # ==================================
+    # DATABASE CONFIGURATION
+    # ==================================
+    db_host: ${CP_DB_HOST}           # e.g., postgresql.tibco-ext.svc.cluster.local
+    db_name: ${CP_DB_NAME}           # e.g., postgres
+    db_port: ${CP_DB_PORT}           # e.g., 5432
+    db_username: ${CP_DB_USERNAME}   # e.g., postgres
+    db_password: ${CP_DB_PASSWORD}   # e.g., postgres
+    db_secret_name: ${CP_DB_SECRET_NAME} # e.g., provider-cp-database-credentials
+    db_ssl_mode: ${CP_DB_SSL_MODE}   # Options: disable, require, verify-ca, verify-full
+    
+    # Uncomment for SSL/TLS database connections (Azure PostgreSQL)
+    # db_ssl_root_cert: ""  # SSL root certificate content (if not using secret)
+    
+    # ==================================
+    # EMAIL SERVER CONFIGURATION
+    # ==================================
+    emailServerType: ${CP_EMAIL_SERVER_TYPE} # Options: smtp, ses, sendgrid
+    emailServer:
+      smtp:
+        server: ${CP_EMAIL_SMTP_SERVER}   # e.g., development-mailserver.tibco-ext.svc.cluster.local
+        port: ${CP_EMAIL_SMTP_PORT}       # e.g., 1025
+        username: ${CP_EMAIL_SMTP_USERNAME} # Empty for MailDev
+        password: ${CP_EMAIL_SMTP_PASSWORD} # Empty for MailDev
+    
+    # Optional email addresses (commented out to use subchart defaults)
+    # fromAndReplyToEmailAddress: ""
+    # cronJobReportsEmailAlias: ""
+    # platformEmailNotificationCcAddresses: ""
+    
+    # ==================================
+    # ADMIN USER CONFIGURATION
+    # ==================================
+    admin:
+      email: ${CP_ADMIN_EMAIL}         # e.g., admin@tibco.com
+      firstname: ${CP_ADMIN_FIRSTNAME} # e.g., Admin
+      lastname: ${CP_ADMIN_LASTNAME}   # e.g., User
+      customerID: ${CP_ADMIN_CUSTOMER_ID} # e.g., customer-id
+    
+    # Optional admin initial password (auto-generated if not provided)
+    # adminInitialPassword: ""
+    
+    # ==================================
+    # AUDIT SERVER CONFIGURATION (optional)
+    # ==================================
+    # auditserver:
+    #   index: "audittrail"
+    #   endpoint: ""
+    #   username: ""
+    #   password: ""
+    
+    # ==================================
+    # ENVIRONMENT
+    # ==================================
+    environment: "production"
+  
+  # ==================================
+  # TIBCO PLATFORM CONFIGURATION
+  # ==================================
+  tibco:
+    # Container registry configuration
+    containerRegistry:
+      url: ${TP_CONTAINER_REGISTRY_URL}       # e.g., csgprdeuwrepoedge.jfrog.io
+      username: ${TP_CONTAINER_REGISTRY_USER} # Your username
+      password: ${TP_CONTAINER_REGISTRY_PASSWORD} # Your password
+      repository: ${TP_CONTAINER_REGISTRY_REPOSITORY} # e.g., tibco-platform-docker-prod
+      # certificateSecret: ""  # Optional: Uncomment to specify custom certificate secret
+    
+    # Control plane instance identifier
+    controlPlaneInstanceId: ${CP_INSTANCE_ID} # e.g., cp1 (max 5 alphanumeric chars)
+    
+    # Service account (will be created with format: {controlPlaneInstanceId}-sa)
+    serviceAccount: ${CP_INSTANCE_ID}-sa # e.g., cp1-sa
+    
+    # Use single namespace for all components
+    useSingleNamespace: true
+    
+    # Enable resource constraints
+    enableResourceConstraints: true
+    
+    # Self-hosted deployment flag
+    self_hosted_deployment: true
+    
+    # FinOps configuration
+    finops: "disable"  # Options: enable, disable
+    
+    # Replica region flag (for multi-region deployments)
+    is_replica_region: false
+    
+    # Database schema management
+    manageDbSchema: true  # Set to false to manage DB schema manually
+    
+    # ==================================
+    # RBAC CONFIGURATION
+    # ==================================
+    rbac:
+      infra: true  # Create RBAC resources for service account
+    
+    # ==================================
+    # NETWORK POLICY CONFIGURATION
+    # ==================================
+    createNetworkPolicy: false  # Set to true to create default network policies
+    networkPolicy:
+      createDeprecatedPolicies: true
+      createClusterScopePolicies: true
+      createInternetScopePolicies: true
+      # Database network policy (uncomment and set if using network policies)
+      # database:
+      #   CIDR: ""  # e.g., 10.0.0.0/16
+      #   port: ""  # e.g., 5432
+      # Log server network policy (uncomment and set if using network policies)
+      # logServer:
+      #   CIDR: ""
+      #   port: ""
+      # Container registry network policy (uncomment and set if using network policies)
+      # containerRegistry:
+      #   CIDR: ""
+      #   port: ""
+      # Email server network policy (uncomment and set if using network policies)
+      # emailServer:
+      #   CIDR: ""
+      #   port: ""
+      # Hybrid connectivity network policy
+      # hybridConnectivity:
+      # - ports:
+      #   - port: 443
+      #     protocol: TCP
+      #   from:
+      #     - ipBlock:
+      #         cidr: 0.0.0.0/0
+      # Proxy network policy (uncomment and set if using network policies)
+      # proxy:
+      #   CIDR: ""
+      #   port: ""
+      # Kubernetes API server network policy (uncomment and set if using network policies)
+      # kubeApiServer:
+      #   CIDR: ""
+      #   port: ""
+      # Kube-DNS network policy
+      kubeDns:
+        egress:
+        - to:
+          - namespaceSelector: {}
+            podSelector:
+              matchLabels:
+                k8s-app: kube-dns
+          ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+    
+    # ==================================
+    # PROXY CONFIGURATION (optional)
+    # ==================================
+    # Uncomment and set values if using a corporate proxy
+    # proxy:
+    #   httpProxy: ""   # e.g., http://proxy.company.com:8080
+    #   httpsProxy: ""  # e.g., https://proxy.company.com:8443
+    #   noProxy: ""     # e.g., localhost,127.0.0.1,.svc,.cluster.local
+    
+    # ==================================
+    # LOGGING CONFIGURATION
+    # ==================================
+    logging:
+      fluentbit:
+        enabled: false  # Set to true to enable logging
+        image:
+          name: "common-fluentbit"
+          # registry: ""  # Uncomment to override default registry
+          # repo: ""       # Uncomment to override default repo
+          tag: 4.1.0
+          pullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 150Mi
+      repository: "tibco-platform-docker-prod"
+
+# ==============================================================================
+# COMPONENT CONFIGURATIONS
+# ==============================================================================
+
+# ==================================
+# HYBRID PROXY (Bootstrap Component)
+# ==================================
+hybrid-proxy:
+  enabled: true
+  # replicaCount: 1  # Commented out - HPA manages replicas
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+  ingress:
+    enabled: true
+    className: ${TP_INGRESS_CLASS} # e.g., openshift-default
+    # annotations: {}  # Uncomment to add custom ingress annotations
+    hosts:
+      - host: '*.${CP_TUNNEL_DNS_DOMAIN}' # e.g., *.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ${CP_TUNNEL_TLS_SECRET_NAME} # e.g., custom-tunnel-tls
+        hosts:
+          - '*.${CP_TUNNEL_DNS_DOMAIN}'
+
+# ==================================
+# ROUTER OPERATOR (Bootstrap Component)
+# ==================================
+router-operator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+  # Session keys configuration
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
+  ingress:
+    enabled: true
+    className: ${TP_INGRESS_CLASS} # e.g., openshift-default
+    # annotations: {}  # Uncomment to add custom ingress annotations
+    hosts:
+      - host: '*.${CP_MY_DNS_DOMAIN}' # e.g., *.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: ${CP_MY_TLS_SECRET_NAME} # e.g., custom-my-tls
+        hosts:
+          - '*.${CP_MY_DNS_DOMAIN}'
+
+# ==================================
+# RESOURCE SET OPERATOR (Bootstrap Component)
+# ==================================
+resource-set-operator:
+  enabled: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+
+# ==================================
+# OTEL COLLECTOR (Optional - for logging)
+# ==================================
+otel-collector:
+  enabled: false  # Set to true to enable OpenTelemetry collector
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+
+# ==================================
+# INFRASTRUCTURE SERVICES
+# ==================================
+tp-cp-infra:
+  enabled: true
+  dpMetadata:
+    dpCoreInfrastructureChartVersion: "1.14.2"
+    dpCoreInfrastructureAppVersion: "1.14.0"
+    dpConfigureNamespaceChartVersion: "1.14.1"
+    dpConfigureNamespaceAppVersion: "1.14.0"
+  resources:
+    infra-compute-services:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1024Mi
+
+# ==================================
+# OBSERVABILITY
+# ==================================
+tp-cp-o11y:
+  enabled: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+
+# ==================================
+# CONFIGURATION AND SUBSCRIPTION
+# ==================================
+tp-cp-configuration:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 30Mi
+    limits:
+      cpu: 100m
+      memory: 60Mi
+
+# ==================================
+# CORE PLATFORM SERVICES
+# ==================================
+tp-cp-core:
+  enabled: true
+  # SSL configuration for database (uncomment if using Azure PostgreSQL with SSL)
+  # identityProvider:
+  #   enabled: true
+  #   tibco:
+  #     db_ssl_root_cert_secretname: "db-ssl-root-cert"  # Secret containing SSL certificate
+  #     db_ssl_root_cert_filename: "db_ssl_root.cert"    # Exact key name in secret (required)
+
+# ==================================
+# FINOPS SERVICES
+# ==================================
+tp-cp-core-finops:
+  # FinOps components are enabled by default
+
+# ==================================
+# INTEGRATION SERVICES
+# ==================================
+tp-cp-integration-common:
+  enabled: true
+
+# ==================================
+# CLI TOOLS
+# ==================================
+tp-cp-cli:
+  enabled: true
+
+# ==================================
+# PROMETHEUS MONITORING
+# ==================================
+tp-cp-prometheus:
+  enabled: true
+  server:
+    retention: "15d"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+
+# ==================================
+# ALERT MANAGER
+# ==================================
+tp-cp-alertmanager:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+# ==================================
+# AUDIT SAFE
+# ==================================
+tp-cp-auditsafe:
+  enabled: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+
+# ==============================================================================
+# ENVIRONMENT VARIABLES REFERENCE
+# ==============================================================================
+# The following environment variables should be exported before deployment.
+# You can download and source the complete script from:
+# https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aks-aro-openshift-env-variables.sh
+#
+# Required Variables:
+# - TP_NODE_CIDR, TP_POD_CIDR, TP_SERVICE_CIDR (network configuration)
+# - CP_MY_DNS_DOMAIN, CP_TUNNEL_DNS_DOMAIN (DNS domains)
+# - CP_STORAGE_SIZE, TP_FILE_STORAGE_CLASS (storage configuration)
+# - CP_DB_HOST, CP_DB_NAME, CP_DB_PASSWORD, CP_DB_PORT, CP_DB_USERNAME
+# - CP_DB_SECRET_NAME, CP_DB_SSL_MODE (database configuration)
+# - CP_EMAIL_SERVER_TYPE, CP_EMAIL_SMTP_SERVER, CP_EMAIL_SMTP_PORT
+# - CP_EMAIL_SMTP_USERNAME, CP_EMAIL_SMTP_PASSWORD (email configuration)
+# - CP_ADMIN_EMAIL, CP_ADMIN_FIRSTNAME, CP_ADMIN_LASTNAME, CP_ADMIN_CUSTOMER_ID
+# - TP_CONTAINER_REGISTRY_URL, TP_CONTAINER_REGISTRY_USER
+# - TP_CONTAINER_REGISTRY_PASSWORD, TP_CONTAINER_REGISTRY_REPOSITORY
+# - CP_INSTANCE_ID, TP_INGRESS_CLASS (platform configuration)
+# - CP_TUNNEL_TLS_SECRET_NAME, CP_MY_TLS_SECRET_NAME (TLS secrets)
+#
+# See Step 7.1 in the setup guide for complete details:
+# https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide.md
+
+# ==============================================================================
+# INSTALLATION COMMAND
+# ==============================================================================
+# Download the values file:
+# curl -o tibco-cp-base-values-corrected.yaml https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-corrected.yaml
+#
+# Install the chart:
+# helm upgrade --install --wait --timeout 1h --create-namespace \
+#   -n ${CP_INSTANCE_ID}-ns tibco-cp-base tibco-platform-public/tibco-cp-base \
+#   --version "${CP_TIBCO_CP_BASE_VERSION}" \
+#   -f tibco-cp-base-values-corrected.yaml

@@ -760,16 +760,34 @@ ls -lh BaltimoreCyberTrustRoot.crt.pem
 
 **Step 2: Create Kubernetes Secret for SSL Certificate**
 
-Create a secret containing the SSL certificate that will be used by the Control Plane to connect to Azure PostgreSQL:
+Create a secret containing the SSL certificate that will be used by the Control Plane to connect to Azure PostgreSQL.
+
+> [!IMPORTANT]
+> The secret must use the **exact key name** `db_ssl_root.cert` (with a dot, not underscore). This is required by the TIBCO Platform.
 
 ```bash
-# Create the SSL certificate secret
-kubectl create secret generic azure-postgres-ssl-cert \
-  --from-file=BaltimoreCyberTrustRoot.crt.pem=BaltimoreCyberTrustRoot.crt.pem \
+# Create the SSL certificate secret with the exact key name required
+kubectl create secret generic db-ssl-root-cert \
+  --from-file=db_ssl_root.cert=BaltimoreCyberTrustRoot.crt.pem \
   -n ${CP_INSTANCE_ID}-ns
 
 # Verify the secret was created
-kubectl get secret azure-postgres-ssl-cert -n ${CP_INSTANCE_ID}-ns
+kubectl get secret db-ssl-root-cert -n ${CP_INSTANCE_ID}-ns
+
+# Optional: Verify the secret structure (should show "db_ssl_root.cert" as the key)
+kubectl get secret db-ssl-root-cert -n ${CP_INSTANCE_ID}-ns -o yaml
+```
+
+**Example Secret Structure:**
+```yaml
+apiVersion: v1
+data:
+  db_ssl_root.cert: <BASE64_ENCODED_CERTIFICATE>
+kind: Secret
+metadata:
+  name: db-ssl-root-cert
+  namespace: <CP_INSTANCE_ID>-ns
+type: Opaque
 ```
 
 **Step 3: Update Environment Variables for Azure PostgreSQL**
@@ -787,8 +805,8 @@ export CP_DB_SECRET_NAME="provider-cp-database-credentials"
 
 # SSL Configuration for Azure PostgreSQL
 export CP_DB_SSL_MODE="require"  # Options: disable, require, verify-ca, verify-full
-export CP_DB_SSL_ROOT_CERT_SECRET_NAME="azure-postgres-ssl-cert"
-export CP_DB_SSL_ROOT_CERT_FILENAME="BaltimoreCyberTrustRoot.crt.pem"
+export CP_DB_SSL_ROOT_CERT_SECRET_NAME="db-ssl-root-cert"
+export CP_DB_SSL_ROOT_CERT_FILENAME="db_ssl_root.cert"
 ```
 
 **SSL Mode Options:**
@@ -1183,6 +1201,25 @@ kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
   --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
 ```
 
+### Step 8.3.1: Generate CP Orchestration Encryption Secret
+
+**Why this step is needed:** The CP orchestration encryption secret secures Control Plane orchestration data and sensitive configuration.
+
+> [!IMPORTANT]
+> The secret key must be named **exactly** `CP_ENCRYPTION_SECRET` (not `CP_ENCRYPTION_SECRET_KEY`). This is required by the TIBCO Platform.
+
+```bash
+# Generate CP encryption secret
+kubectl create secret generic cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns \
+  --from-literal=CP_ENCRYPTION_SECRET=$(openssl rand -base64 32)
+
+# Verify the secret was created
+kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns
+
+# Optional: Verify the secret structure (should show "CP_ENCRYPTION_SECRET" as the key)
+kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns -o yaml
+```
+
 ### Step 8.4: Install TIBCO Control Plane Base Chart
 
 **Important Note about Chart Evolution:**
@@ -1193,7 +1230,7 @@ kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
 > [!NOTE]
 > Before executing the chart installation, ensure workloads in the cluster can access external resources like Database and Email Server. Also ensure you have:
 > 1. Created the `session-keys` secret (Step 8.3)
-> 2. Created the `cporch-encryption-secret` (from variable export section)
+> 2. Created the `cporch-encryption-secret` secret (Step 8.3.1)
 > 3. Configured database credentials
 > 4. Exported all required variables from Step 7.1
 

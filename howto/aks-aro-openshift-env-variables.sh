@@ -130,8 +130,8 @@ export CP_DB_USERNAME="postgres"
 # export CP_DB_USERNAME="<admin-user>@<server-name>"
 # export CP_DB_PASSWORD="<your-password>"
 # export CP_DB_SSL_MODE="require"  # Options: require, verify-ca, verify-full
-# export CP_DB_SSL_ROOT_CERT_SECRET_NAME="azure-postgres-ssl-cert"
-# export CP_DB_SSL_ROOT_CERT_FILENAME="BaltimoreCyberTrustRoot.crt.pem"
+# export CP_DB_SSL_ROOT_CERT_SECRET_NAME="db-ssl-root-cert"
+# export CP_DB_SSL_ROOT_CERT_FILENAME="db_ssl_root.cert"
 
 # Email server configuration variables
 export CP_EMAIL_SERVER_TYPE="smtp"
