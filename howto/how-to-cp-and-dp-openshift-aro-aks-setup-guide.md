@@ -674,6 +674,17 @@ volumeBindingMode: Immediate
 EOF
 ```
 
+> [!TIP]
+> **For comprehensive PostgreSQL database setup and management guidance**, including:
+> - Detailed PostgreSQL installation options (on-premises vs Azure SaaS)
+> - Using TIBCO's official `postgres-helper.bash` script for database schema management
+> - Database credentials and secrets configuration
+> - Troubleshooting common database issues
+> 
+> See the dedicated guide: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide.md)
+> 
+> **Official TIBCO Documentation**: [PostgreSQL Management Script](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/scripts/database/README.md)
+
 ### Step 7.4: Install PostgreSQL
 
 **Why this step is needed:** TIBCO Control Plane requires PostgreSQL as its metadata database to store:
@@ -740,6 +751,9 @@ oc label namespace tibco-ext networking.platform.tibco.com/non-cp-ns=enable --ov
 #### Alternative: Using Azure Database for PostgreSQL (SaaS)
 
 Instead of deploying PostgreSQL on the cluster, you can use **Azure Database for PostgreSQL Flexible Server** as a managed SaaS solution. This provides better scalability, automated backups, and enterprise-grade security.
+
+> [!TIP]
+> For complete Azure PostgreSQL setup including SSL configuration, database schema management using TIBCO's `postgres-helper.bash` script, and advanced troubleshooting, see: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide.md)
 
 **Prerequisites for Azure PostgreSQL:**
 1. Azure Database for PostgreSQL Flexible Server instance created
