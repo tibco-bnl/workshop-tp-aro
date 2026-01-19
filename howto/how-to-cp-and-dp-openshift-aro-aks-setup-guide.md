@@ -535,6 +535,10 @@ export HELM_URL=tibco-platform-public
 # ========================================
 ## Control Plane Instance specific variables (only needed if deploying Control Plane)
 export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
+# ⚠️ IMPORTANT: CP_INSTANCE_ID must NOT contain hyphens (-) as it is used as database name prefix
+# PostgreSQL database names cannot contain hyphens. Use underscores (_) or alphanumeric only.
+# Valid examples: cp1, nxpcp, nxp_tibco_cp, prod1
+# Invalid examples: nxp-tibco-cp, my-cp, prod-1
 export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used for Control Plane UI
 export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used for hybrid connectivity
 
@@ -686,6 +690,21 @@ EOF
 > **Official TIBCO Documentation**: [PostgreSQL Management Script](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/scripts/database/README.md)
 
 ### Step 7.4: Install PostgreSQL
+
+> [!IMPORTANT]
+> **Database Naming Convention Restriction**
+> 
+> The `CP_INSTANCE_ID` is used as a prefix for PostgreSQL database names (e.g., `cp1_tscidmdb`, `cp1_defaultidpdb`). PostgreSQL identifiers **cannot contain hyphens (-)** unless quoted, and TIBCO's database scripts do not quote identifiers.
+> 
+> **Valid CP_INSTANCE_ID examples**: `cp1`, `nxpcp`, `nxp_tibco_cp`, `prod1`  
+> **Invalid examples**: `nxp-tibco-cp` ❌ (contains hyphens), `my-control-plane` ❌
+> 
+> If you use hyphens, database creation will fail with errors like:
+> ```
+> ERROR: Failed to create database 'nxp-tibco-cp_defaultidpdb'
+> ```
+> 
+> **Solution**: Use underscores or remove hyphens: `nxp_tibco_cp` or `nxptibcocp`
 
 **Why this step is needed:** TIBCO Control Plane requires PostgreSQL as its metadata database to store:
 - Platform configuration and metadata

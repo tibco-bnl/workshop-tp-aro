@@ -2,16 +2,7 @@
 
 This repository provides comprehensive guides and resources for deploying **TIBCO Platform** on **Azure Red Hat OpenShift (ARO)** clusters. It covers multiple deployment scenarios from basic ARO cluster setup to full Control Plane and Data Plane deployments with observability.
 
-## 🔗 Additional Resources
-
-- [TIBCO Platform Official Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm)
-- [Azure Red Hat OpenShift Documentation](https://docs.microsoft.com/en-us/azure/openshift/)
-- [OpenShift Container Platform Documentation](https://docs.openshift.com/)
-- [Elastic Cloud on Kubernetes (ECK)](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)
-- [Prometheus Operator Documentation](https://prometheus-operator.dev/)
-
-
-## 🚀 What This Repository Helps You Setup
+##  What This Repository Helps You Setup
 
 ### 1. **TIBCO Platform Control Plane (CP) + Data Plane (DP) on Same ARO Cluster**
 Deploy a complete TIBCO Platform environment with both Control Plane and Data Plane on a single ARO cluster for evaluation and workshop purposes.
@@ -76,6 +67,24 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
   - Certificate and DNS alignment best practices
 - 📋 **Use Case**: Custom domain setup, SSL certificate management, service discovery
 - ⏱️ **Duration**: 30-60 minutes
+
+### 📋 Prerequisites and Planning
+
+#### [📖 Customer Prerequisites Checklist](./howto/prerequisites-checklist-for-customer.md)
+**Comprehensive pre-installation requirements checklist**
+- 🎯 **Scope**: Complete prerequisites for Control Plane and Data Plane installation
+- 🔧 **Features**:
+  - Kubernetes/OpenShift cluster requirements (CNCF certified)
+  - PostgreSQL 16 database specifications
+  - Storage, networking, and DNS requirements
+  - Certificate and security requirements
+  - Ingress controller compatibility matrix
+  - Browser requirements and supported versions
+  - Control Tower Data Plane specifications
+  - Naming conventions and restrictions (PostgreSQL identifier rules)
+- 📋 **Use Case**: Pre-installation planning, customer readiness assessment, infrastructure preparation
+- ⏱️ **Preparation Time**: 3-5 business days
+- 🎁 **Benefits**: Reduces deployment delays, ensures all requirements met before installation day
 
 ### ⚙️ Configuration and Scripts
 
@@ -176,6 +185,14 @@ graph TD
 - **Ingress Controller**: OpenShift router with wildcard domain support
 - **DNS Management**: Azure DNS with wildcard entries
 - **Certificate Management**: Let's Encrypt integration
+
+## 🔗 Additional Resources
+
+- [TIBCO Platform Official Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm)
+- [Azure Red Hat OpenShift Documentation](https://docs.microsoft.com/en-us/azure/openshift/)
+- [OpenShift Container Platform Documentation](https://docs.openshift.com/)
+- [Elastic Cloud on Kubernetes (ECK)](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)
+- [Prometheus Operator Documentation](https://prometheus-operator.dev/)
 
 ## 🤝 Contributing
 
