@@ -289,7 +289,207 @@ curl -u "username:password" https://<registry-url>/v2/_catalog
 
 ---
 
-## 9. RBAC and Permissions
+## 9. Kubernetes Secrets (Created During Installation)
+
+The following Kubernetes secrets will be created during the TIBCO Platform installation. Ensure you have the necessary permissions and information ready.
+
+### Control Plane Secrets
+
+#### 1. Container Registry Pull Secret
+
+**Secret Name**: `tibco-container-registry-credentials`  
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: Authenticate and pull TIBCO Platform container images from JFrog registry
+
+**Creation Command**:
+```bash
+kubectl create secret docker-registry tibco-container-registry-credentials \
+  --docker-server=<REGISTRY_URL> \
+  --docker-username=<REGISTRY_USERNAME> \
+  --docker-password=<REGISTRY_PASSWORD> \
+  --docker-email=<YOUR_EMAIL> \
+  -n <CP_INSTANCE_ID>-ns
+```
+
+**Required Information**:
+- Registry URL (e.g., `csgprdusw2reposaas.jfrog.io`)
+- Registry username (provided by TIBCO)
+- Registry password/token (provided by TIBCO)
+- Email address
+
+#### 2. Session Keys Secret (Required)
+
+**Secret Name**: `session-keys`  
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: Session encryption keys required by router pods and web-server components
+
+**Creation Command**:
+```bash
+# Generate random 32-character alphanumeric keys
+export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+export DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+
+# Create secret
+kubectl create secret generic session-keys -n <CP_INSTANCE_ID>-ns \
+  --from-literal=TSC_SESSION_KEY=${TSC_SESSION_KEY} \
+  --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
+```
+
+**Keys**:
+- `TSC_SESSION_KEY`: 32-character alphanumeric string
+- `DOMAIN_SESSION_KEY`: 32-character alphanumeric string
+
+> **⚠️ Important**: This secret is mandatory. Router pods will fail to start if this secret is missing.
+
+#### 3. Database Credentials Secret (Optional - Auto-Created)
+
+**Secret Name**: `{instanceId}-postgres-credential` (customizable)  
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: Store PostgreSQL database credentials for Control Plane components
+
+> **ℹ️ Note**: This secret is **automatically created** by the Control Plane helm chart during installation. Manual creation is only needed if using a custom secret name or pre-creating for specific requirements.
+
+**Manual Creation Command** (if needed):
+```bash
+kubectl create secret generic <SECRET_NAME> \
+  --from-literal=db_username=<DB_USERNAME> \
+  --from-literal=db_password=<DB_PASSWORD> \
+  -n <CP_INSTANCE_ID>-ns
+```
+
+**Keys**:
+- `db_username`: PostgreSQL master username
+- `db_password`: PostgreSQL master password
+
+#### 4. Database SSL Certificate Secret (If Using SSL)
+
+**Secret Name**: `db-ssl-root-cert` (customizable)  
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: SSL certificate for secure PostgreSQL connection (Azure, AWS RDS, etc.)
+
+**Creation Command**:
+```bash
+kubectl create secret generic db-ssl-root-cert \
+  --from-file=db_ssl_root.cert=<PATH_TO_CERT_FILE> \
+  -n <CP_INSTANCE_ID>-ns
+```
+
+> **⚠️ Critical**: The secret key **must** be named `db_ssl_root.cert` (with a dot, not underscore). This is required by TIBCO Platform.
+
+#### 5. TLS/SSL Certificate Secrets for Ingress
+
+**Secret Names**: 
+- `tp-certificate-my` (Control Plane UI domain)
+- `tp-certificate-tunnel` (Hybrid connectivity domain)
+
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: TLS certificates for HTTPS ingress to Control Plane domains
+
+**Creation Command**:
+```bash
+# For Control Plane UI domain
+kubectl create secret tls tp-certificate-my \
+  --cert=<PATH_TO_CERT_FILE> \
+  --key=<PATH_TO_KEY_FILE> \
+  -n <CP_INSTANCE_ID>-ns
+
+# For tunnel domain
+kubectl create secret tls tp-certificate-tunnel \
+  --cert=<PATH_TO_CERT_FILE> \
+  --key=<PATH_TO_KEY_FILE> \
+  -n <CP_INSTANCE_ID>-ns
+```
+
+**Required Files**:
+- Certificate file (PEM format)
+- Private key file (PEM format)
+
+#### 6. Encryption Secret
+
+**Secret Name**: `cporch-encryption-secret`  
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: Encryption key for orchestrator component
+
+**Creation Command**:
+```bash
+# Generate random encryption key
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
+
+# Create secret
+kubectl create secret generic cporch-encryption-secret -n <CP_INSTANCE_ID>-ns \
+  --from-literal=ENCRYPTION_KEY=${ENCRYPTION_KEY}
+```
+
+#### 7. SMTP Credentials Secret (Optional)
+
+**Secret Name**: `smtp-credentials` (customizable)  
+**Namespace**: `{instanceId}-ns` (Control Plane namespace)  
+**Purpose**: SMTP server authentication for email notifications
+
+**Creation Command**:
+```bash
+kubectl create secret generic smtp-credentials \
+  --from-literal=smtp-username=<SMTP_USERNAME> \
+  --from-literal=smtp-password=<SMTP_PASSWORD> \
+  -n <CP_INSTANCE_ID>-ns
+```
+
+### Data Plane Secrets
+
+#### 1. Container Registry Pull Secret
+
+**Secret Name**: `tibco-container-registry-credentials`  
+**Namespace**: `{dataplaneId}-ns` (Data Plane namespace)  
+**Purpose**: Pull TIBCO Platform images for Data Plane capabilities
+
+**Creation Command**: Same as Control Plane container registry secret (section 9.1)
+
+### Secrets Checklist
+
+Before installation, ensure you have the following information ready to create secrets:
+
+- [ ] **Container Registry Credentials**:
+  - [ ] Registry URL
+  - [ ] Username
+  - [ ] Password/token
+  - [ ] Email address
+
+- [ ] **Database Credentials**:
+  - [ ] Master username
+  - [ ] Master password
+  - [ ] SSL certificate file (if using SSL)
+
+- [ ] **TLS Certificates**:
+  - [ ] Certificate files for `my` domain (PEM format)
+  - [ ] Private key files for `my` domain (PEM format)
+  - [ ] Certificate files for `tunnel` domain (PEM format)
+  - [ ] Private key files for `tunnel` domain (PEM format)
+
+- [ ] **SMTP Credentials** (optional):
+  - [ ] SMTP username
+  - [ ] SMTP password
+
+> **Note**: Session keys and encryption keys will be generated during installation using `openssl` commands.
+
+### RBAC Requirements for Secret Management
+
+Ensure the installation account has the following permissions in target namespaces:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tibco-secret-manager
+  namespace: <namespace>
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+```
+
+---
+
+## 10. RBAC and Permissions
 
 ### Kubernetes/OpenShift Permissions Required
 
@@ -316,7 +516,7 @@ curl -u "username:password" https://<registry-url>/v2/_catalog
 
 ---
 
-## 10. Resource Quotas and Limits
+## 11. Resource Quotas and Limits
 
 ### Ensure No Restrictive Quotas
 
@@ -340,7 +540,7 @@ kubectl get resourcequota -n <namespace>
 
 ---
 
-## 11. Network Policies
+## 12. Network Policies
 
 ### Ensure Network Policies Allow Required Traffic
 
@@ -354,7 +554,7 @@ If network policies are enforced, ensure:
 
 ---
 
-## 12. Naming Conventions and Instance Identification
+## 13. Naming Conventions and Instance Identification
 
 ### Control Plane Instance ID
 
@@ -377,7 +577,7 @@ If network policies are enforced, ensure:
 
 ---
 
-## 13. Email Server Configuration (Optional but Recommended)
+## 14. Email Server Configuration (Optional but Recommended)
 
 For Control Plane notification emails (user invitations, password resets, etc.):
 
@@ -393,7 +593,7 @@ For Control Plane notification emails (user invitations, password resets, etc.):
 
 ---
 
-## 14. Browser Requirements (Control Plane UI Access)
+## 15. Browser Requirements (Control Plane UI Access)
 
 ### Supported Browsers
 
@@ -408,7 +608,7 @@ For accessing TIBCO Control Plane UI, current versions of the following browsers
 
 ---
 
-## 15. Ingress Controller
+## 16. Ingress Controller
 
 ### Supported Ingress Controllers
 
@@ -504,6 +704,15 @@ Please complete this checklist and return to TIBCO implementation team **at leas
 - [ ] Private keys securely stored and accessible
 - [ ] Container registry credentials received from TIBCO
 - [ ] Container registry access tested and verified
+
+### Secrets Preparation
+
+- [ ] Container registry credentials (URL, username, password) ready
+- [ ] Database credentials documented
+- [ ] TLS certificate and key files prepared for ingress
+- [ ] Database SSL certificate ready (if using managed PostgreSQL)
+- [ ] SMTP credentials ready (if using email notifications)
+- [ ] OpenSSL installed on installation machine (for generating session/encryption keys)
 
 ### Access and Permissions
 
