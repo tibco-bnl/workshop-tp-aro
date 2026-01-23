@@ -86,6 +86,23 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - ⏱️ **Preparation Time**: 3-5 business days
 - 🎁 **Benefits**: Reduces deployment delays, ensures all requirements met before installation day
 
+#### [📖 Firewall Requirements and Network Connectivity](./docs/firewall-requirements.md)
+**Complete firewall and network requirements for TIBCO Platform deployment on ARO**
+- 🎯 **Scope**: All external endpoints required for TIBCO Platform and OpenShift on ARO
+- 🔧 **Features**:
+  - Container registry endpoints (TIBCO JFrog, Red Hat registries, Docker Hub, GitHub, etc.)
+  - Helm chart repository URLs
+  - Red Hat/OpenShift service endpoints (api.openshift.com, console.redhat.com, quay.io)
+  - Azure cloud provider endpoints (ARM, Azure AD, storage, monitoring)
+  - Network Security Group (NSG) rules for Azure
+  - Azure Firewall application rules (copy-paste ready)
+  - OpenShift cluster-wide proxy configuration
+  - DNS requirements and connectivity testing commands
+  - ARO-specific considerations and Red Hat SRE requirements
+- 📋 **Use Case**: Enterprise deployments, air-gapped environments, firewall rule requests, proxy configuration
+- ⏱️ **Review Time**: 30-60 minutes
+- 🎁 **Benefits**: Streamlines firewall approval process, prevents connectivity issues, ensures ARO cluster health
+
 ### ⚙️ Configuration and Scripts
 
 #### [📄 Environment Variables Script](./howto/aks-aro-openshift-env-variables.sh)
