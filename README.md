@@ -94,16 +94,22 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
   - Helm chart repository URLs
   - Red Hat/OpenShift service endpoints (api.openshift.com, console.redhat.com, quay.io)
   - Azure cloud provider endpoints (ARM, Azure AD, storage, monitoring)
+  - Go module proxy for Flogo applications (proxy.golang.org)
   - Network Security Group (NSG) rules for Azure
   - Azure Firewall application rules (copy-paste ready)
   - OpenShift cluster-wide proxy configuration
+  - TIBCO Platform proxy configuration (UI and Helm)
   - DNS requirements and connectivity testing commands
   - ARO-specific considerations and Red Hat SRE requirements
 - 📋 **Use Case**: Enterprise deployments, air-gapped environments, firewall rule requests, proxy configuration
 - ⏱️ **Review Time**: 30-60 minutes
 - 🎁 **Benefits**: Streamlines firewall approval process, prevents connectivity issues, ensures ARO cluster health
 
-### ⚙️ Configuration and Scripts
+**Related Documentation**:
+- [Firewall Requirements for AKS](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements.md) - Azure Kubernetes Service specific requirements
+- [Firewall Requirements for EKS](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements-eks.md) - Amazon EKS specific requirements with AWS endpoints and VPC configuration
+
+---
 
 #### [📄 Environment Variables Script](./howto/aks-aro-openshift-env-variables.sh)
 **Centralized environment configuration**
@@ -205,9 +211,21 @@ graph TD
 
 ## 🔗 Additional Resources
 
+### TIBCO Platform Documentation
 - [TIBCO Platform Official Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm)
+- [TIBCO Platform Proxy Configuration](https://docs.tibco.com/pub/platform-cp/1.14.0/doc/html/Default.htm#UserGuide/updating-proxy-configuration.htm)
+
+### Cloud Provider Documentation
 - [Azure Red Hat OpenShift Documentation](https://docs.microsoft.com/en-us/azure/openshift/)
 - [OpenShift Container Platform Documentation](https://docs.openshift.com/)
+- [OpenShift Cluster-Wide Proxy Configuration](https://docs.openshift.com/container-platform/latest/networking/enable-cluster-wide-proxy.html)
+
+### Related Workshop Repositories
+- [TIBCO Platform on AKS Workshop](https://github.com/tibco-bnl/workshop-tp-aks) - Azure Kubernetes Service deployment guides
+  - [AKS Firewall Requirements](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements.md)
+  - [EKS Firewall Requirements](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements-eks.md)
+
+### Observability and Monitoring
 - [Elastic Cloud on Kubernetes (ECK)](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)
 - [Prometheus Operator Documentation](https://prometheus-operator.dev/)
 
