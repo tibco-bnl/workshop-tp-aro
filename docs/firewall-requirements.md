@@ -15,6 +15,7 @@ The TIBCO Platform deployment on ARO requires access to:
 - **8+ External Services** for Kubernetes, monitoring, and documentation
 - **5 Azure-specific endpoints** for storage and management
 - **4 Red Hat/OpenShift endpoints** for cluster operations
+- **1 Go Module Proxy** for Flogo applications (if not using Flogo CLI)
 
 ---
 
@@ -173,7 +174,25 @@ These are internal cluster services that communicate within the OpenShift cluste
 
 ---
 
-## 9. Complete Firewall Rules Summary
+## 9. TIBCO Flogo Go Module Proxy (CRITICAL for Flogo Apps)
+
+| URL | Port | Protocol | Purpose |
+|-----|------|----------|---------|
+| `https://proxy.golang.org` | 443 | HTTPS | **CRITICAL**: Go module proxy for Flogo applications |
+| `https://sum.golang.org` | 443 | HTTPS | Go checksum database for module verification |
+
+**⚠️ IMPORTANT:** 
+- **Required for TIBCO Flogo applications** that are NOT built using the Flogo CLI
+- The Kubernetes cluster must have outbound access to `https://proxy.golang.org`
+- This is the official Go module proxy that Flogo runtime uses to download dependencies
+- Without access to this endpoint, Flogo applications will fail to start if they have external Go module dependencies
+- If using the Flogo CLI to build applications, this endpoint may not be required as dependencies are bundled
+
+**Workaround**: If you cannot allow access to `proxy.golang.org`, build all Flogo applications using the Flogo CLI which bundles dependencies.
+
+---
+
+## 10. Complete Firewall Rules Summary
 
 ### Outbound Rules (From ARO to Internet)
 
@@ -209,6 +228,10 @@ Destinations:
   - management.azure.com                      # Azure ARM
   - login.microsoftonline.com                 # Azure AD
   - *.blob.core.windows.net                   # Azure Blob Storage
+  
+  # Go Module Proxy (Flogo)
+  - proxy.golang.org                          # Go module proxy
+  - sum.golang.org                            # Go checksum database
 ```
 
 #### Recommended (HIGHLY RECOMMENDED)
@@ -370,15 +393,30 @@ Rules:
       - *.vault.azure.net
       - *.ods.opinsights.azure.com
       - *.oms.opinsights.azure.com
+  
+  - Name: Go-Module-Proxy-Flogo
+    Source Addresses: <ARO_WORKER_SUBNET_CIDR>
+    Protocols: https:443
+    Target FQDNs:
+      - proxy.golang.org
+      - sum.golang.org
 ```
 
 ---
 
-## 12. Proxy Configuration
+## 12. Proxy Configuration for Enterprise Environments
 
-If using an HTTP proxy, configure the following in the ARO cluster:
+If your enterprise has a secure HTTP/HTTPS proxy already configured, you can configure TIBCO Platform to use it instead of opening all firewall rules.
 
-### OpenShift Cluster-Wide Proxy Configuration
+### 12.1 Prerequisites
+
+- HTTP/HTTPS proxy server already deployed and operational
+- Proxy allows HTTPS traffic to required endpoints (see sections above)
+- Proxy authentication credentials (if required)
+
+### 12.2 Configure OpenShift Cluster-Wide Proxy
+
+ARO/OpenShift supports cluster-wide proxy configuration:
 
 ```yaml
 apiVersion: config.openshift.io/v1
@@ -392,18 +430,212 @@ spec:
     localhost,127.0.0.1,
     .svc,.svc.cluster.local,
     .apps.<cluster-name>.<domain>,
+    api.<cluster-name>.<domain>,
     10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,
     169.254.169.254,
-    <ARO_SERVICE_CIDR>,<ARO_POD_CIDR>
+    <ARO_SERVICE_CIDR>,<ARO_POD_CIDR>,
+    .azure.com
+  # Optional: Proxy authentication
+  trustedCA:
+    name: user-ca-bundle
 ```
 
 **NO_PROXY must include**:
-- Cluster service CIDR (e.g., `172.30.0.0/16`)
-- Cluster pod CIDR (e.g., `10.128.0.0/14`)
-- `.svc` and `.svc.cluster.local` for internal service discovery
-- `.apps.<cluster-name>.<domain>` for OpenShift routes
-- Azure metadata service: `169.254.169.254`
-- OpenShift API: `api.<cluster-name>.<domain>`
+- `localhost`, `127.0.0.1` - Local host
+- `169.254.169.254` - Azure metadata service
+- `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` - Private IP ranges
+- `.svc`, `.svc.cluster.local` - Kubernetes service discovery
+- `.apps.<cluster-name>.<domain>` - OpenShift application routes
+- `api.<cluster-name>.<domain>` - OpenShift API server
+- `<ARO_SERVICE_CIDR>` - Your ARO service CIDR (e.g., `172.30.0.0/16`)
+- `<ARO_POD_CIDR>` - Your ARO pod CIDR (e.g., `10.128.0.0/14`)
+- `.azure.com` - Azure service endpoints (or use Azure Private Link instead)
+
+**Apply the proxy configuration**:
+```bash
+oc apply -f cluster-proxy.yaml
+
+# Verify proxy configuration
+oc get proxy/cluster -o yaml
+```
+
+### 12.3 Configure TIBCO Platform Control Plane Proxy Settings
+
+After installing the TIBCO Platform Control Plane, configure proxy settings through the UI or via Helm values.
+
+**Reference Documentation**: [TIBCO Platform - Updating Proxy Configuration](https://docs.tibco.com/pub/platform-cp/1.14.0/doc/html/Default.htm#UserGuide/updating-proxy-configuration.htm)
+
+#### Option 1: Configure via Control Plane UI
+
+1. Login to TIBCO Platform Control Plane UI
+2. Navigate to **Settings** → **Infrastructure** → **Proxy Configuration**
+3. Configure the following settings:
+
+```yaml
+HTTP Proxy: http://proxy.company.com:8080
+HTTPS Proxy: http://proxy.company.com:8080
+No Proxy: localhost,127.0.0.1,.svc,.svc.cluster.local,169.254.169.254,10.0.0.0/8,.apps.<cluster-name>.<domain>
+Proxy Username: <username> (if authentication required)
+Proxy Password: <password> (if authentication required)
+```
+
+4. Click **Save** and **Apply Configuration**
+
+#### Option 2: Configure via Helm Values
+
+Include proxy configuration in your `tibco-cp-base` values file:
+
+```yaml
+# tibco-cp-base-values.yaml
+global:
+  tibco:
+    # Proxy configuration
+    proxy:
+      enabled: true
+      httpProxy: "http://proxy.company.com:8080"
+      httpsProxy: "http://proxy.company.com:8080"
+      noProxy: "localhost,127.0.0.1,.svc,.svc.cluster.local,169.254.169.254,10.0.0.0/8,.apps.<cluster-name>.<domain>"
+      # Optional: Proxy authentication
+      username: "<username>"
+      password: "<password>"
+```
+
+Then upgrade the Control Plane:
+
+```bash
+helm upgrade --install -n ${CP_INSTANCE_ID}-ns tibco-cp-base tibco-platform-public/tibco-cp-base \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values.yaml
+```
+
+### 12.4 Configure TIBCO Platform Data Plane Proxy Settings
+
+Configure proxy settings for the Data Plane similarly:
+
+```yaml
+# dp-configure-namespace values
+global:
+  tibco:
+    proxy:
+      enabled: true
+      httpProxy: "http://proxy.company.com:8080"
+      httpsProxy: "http://proxy.company.com:8080"
+      noProxy: "localhost,127.0.0.1,.svc,.svc.cluster.local,169.254.169.254,10.0.0.0/8,.apps.<cluster-name>.<domain>"
+```
+
+### 12.5 Configure Flogo Applications for Go Module Proxy
+
+For TIBCO Flogo applications that are NOT built using the Flogo CLI, configure the Go module proxy:
+
+#### Option 1: Use Corporate Proxy for proxy.golang.org
+
+Ensure your corporate proxy allows access to:
+- `https://proxy.golang.org`
+- `https://sum.golang.org`
+
+No additional configuration needed if ARO is already configured with cluster-wide proxy settings.
+
+#### Option 2: Use Private Go Module Proxy (Athens or Artifactory)
+
+If your enterprise has a private Go module proxy:
+
+```yaml
+# Flogo application environment variables
+env:
+  - name: GOPROXY
+    value: "https://go-proxy.company.com,https://proxy.golang.org,direct"
+  - name: GOSUMDB
+    value: "sum.golang.org"
+  - name: GOPRIVATE
+    value: "github.com/company/*"  # Private modules
+```
+
+#### Option 3: Build with Flogo CLI (Recommended)
+
+**Best Practice**: Build all Flogo applications using the Flogo CLI to bundle dependencies:
+
+```bash
+# Build Flogo application with bundled dependencies
+flogo build --embed-config true --optimize true
+
+# This eliminates the need for proxy.golang.org access at runtime
+```
+
+### 12.6 Verify Proxy Configuration
+
+After configuring proxy settings, verify connectivity:
+
+```bash
+# Check cluster-wide proxy settings
+oc get proxy/cluster -o yaml
+
+# Test from a pod
+oc run test-proxy --image=curlimages/curl --rm -it --restart=Never -- \
+  sh -c 'echo "HTTP_PROXY=$HTTP_PROXY"; curl -I https://proxy.golang.org'
+
+# Check Control Plane proxy settings
+oc get configmap -n ${CP_INSTANCE_ID}-ns -o yaml | grep -i proxy
+
+# Check Data Plane proxy settings
+oc get configmap -n ${DP_NAMESPACE} -o yaml | grep -i proxy
+```
+
+### 12.7 Proxy Configuration Best Practices
+
+1. **Use cluster-wide proxy** configuration in OpenShift for consistent behavior
+2. **Configure NO_PROXY carefully** to avoid routing internal traffic through proxy
+3. **Test thoroughly** after proxy configuration changes
+4. **Monitor proxy logs** for blocked connections or authentication issues
+5. **Document proxy exceptions** required for TIBCO Platform
+6. **Use Azure Private Link** for Azure services to bypass proxy
+7. **Rotate proxy credentials** regularly if authentication is required
+8. **Leverage OpenShift's built-in proxy support** for automatic propagation to pods
+
+### 12.8 Troubleshooting Proxy Issues
+
+**Issue**: Pods cannot pull images through proxy
+```bash
+# Check cluster-wide proxy configuration
+oc get proxy/cluster -o yaml
+
+# Check if CRI-O is using proxy settings
+oc debug node/<node-name> -- chroot /host cat /etc/sysconfig/crio | grep -i proxy
+
+# Restart CRI-O if needed (node restart may be required)
+```
+
+**Issue**: Flogo applications fail to download Go modules
+```bash
+# Check GOPROXY setting in pod
+oc exec -it <flogo-pod> -- env | grep GOPROXY
+
+# Test Go module proxy access
+oc exec -it <flogo-pod> -- curl -v https://proxy.golang.org
+```
+
+**Issue**: Control Plane services cannot reach external APIs
+```bash
+# Check proxy configuration in Control Plane namespace
+oc get configmap -n ${CP_INSTANCE_ID}-ns -o yaml | grep -A 5 proxy
+
+# Check pod environment variables
+oc exec -it <cp-pod> -n ${CP_INSTANCE_ID}-ns -- env | grep -i proxy
+
+# Check OpenShift cluster proxy status
+oc get clusteroperators | grep proxy
+```
+
+**Issue**: OpenShift cluster operators failing due to proxy
+```bash
+# Check cluster operator status
+oc get clusteroperators
+
+# Check proxy configuration status
+oc get proxy/cluster -o jsonpath='{.status}'
+
+# View operator logs
+oc logs -n openshift-cluster-version deployments/cluster-version-operator
+```
 
 ---
 
@@ -416,6 +648,8 @@ Ensure the following DNS resolutions work from within the ARO cluster:
 #### TIBCO Platform
 - `csgprduswrepoedge.jfrog.io`
 - `tibcosoftware.github.io`
+- `proxy.golang.org` (for Flogo)
+- `sum.golang.org` (for Flogo)
 
 #### Red Hat/OpenShift
 - `registry.redhat.io`
@@ -514,6 +748,18 @@ oc run test-azuread --image=curlimages/curl --rm -it --restart=Never -- \
   curl -I https://login.microsoftonline.com
 ```
 
+### Test Go Module Proxy (Flogo)
+
+```bash
+# Test proxy.golang.org (critical for Flogo)
+oc run test-goproxy --image=curlimages/curl --rm -it --restart=Never -- \
+  curl -I https://proxy.golang.org
+
+# Test sum.golang.org
+oc run test-gosum --image=curlimages/curl --rm -it --restart=Never -- \
+  curl -I https://sum.golang.org
+```
+
 ---
 
 ## 15. Troubleshooting
@@ -550,6 +796,14 @@ oc run test-azuread --image=curlimages/curl --rm -it --restart=Never -- \
 1. Verify access to `charts.jetstack.io` for initial installation
 2. For Let's Encrypt, ensure outbound port 80/443 to Let's Encrypt ACME servers
 3. Check cert-manager logs: `oc logs -n cert-manager -l app=cert-manager`
+
+**Issue**: Flogo applications fail to start with Go module errors
+**Solution**:
+1. **Most Common**: Verify access to `proxy.golang.org` and `sum.golang.org`
+2. Check pod logs: `oc logs <flogo-pod> | grep -i "proxy.golang.org"`
+3. Verify GOPROXY environment variable: `oc exec <flogo-pod> -- env | grep GOPROXY`
+4. Check cluster-wide proxy configuration: `oc get proxy/cluster -o yaml`
+5. **Workaround**: Build Flogo applications using Flogo CLI to bundle dependencies
 
 **Issue**: Azure CSI drivers not working  
 **Solution**:
@@ -673,6 +927,10 @@ Required FQDNs (CRITICAL - Must be approved):
   - login.microsoftonline.com           # Azure AD
   - *.login.microsoftonline.com         # Azure AD multi-tenant
   - *.blob.core.windows.net             # Azure Blob Storage
+  
+  # Go Module Proxy (Flogo)
+  - proxy.golang.org                     # Go module proxy
+  - sum.golang.org                       # Go checksum database
 
 Optional FQDNs (Recommended):
   - github.com                           # Source code and releases
@@ -839,16 +1097,19 @@ If firewall approval is denied or extremely limited:
 ## 18. References
 
 - [TIBCO Platform Helm Charts](https://github.com/TIBCOSoftware/tp-helm-charts)
+- [TIBCO Platform Proxy Configuration](https://docs.tibco.com/pub/platform-cp/1.14.0/doc/html/Default.htm#UserGuide/updating-proxy-configuration.htm)
 - [Azure Red Hat OpenShift Documentation](https://learn.microsoft.com/en-us/azure/openshift/)
 - [ARO Network Requirements](https://learn.microsoft.com/en-us/azure/openshift/support-policies-v4#network-connectivity)
 - [OpenShift Container Platform Network Configuration](https://docs.openshift.com/container-platform/latest/networking/understanding-networking.html)
+- [OpenShift Cluster-Wide Proxy Configuration](https://docs.openshift.com/container-platform/latest/networking/enable-cluster-wide-proxy.html)
 - [Azure Firewall Application Rules](https://learn.microsoft.com/en-us/azure/firewall/rule-processing)
 - [Red Hat Container Registry Authentication](https://access.redhat.com/RegistryAuthentication)
+- [Go Module Proxy](https://proxy.golang.org)
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 23, 2026  
+**Document Version**: 1.1  
+**Last Updated**: January 29, 2026  
 **Platform**: Azure Red Hat OpenShift (ARO)  
 **Generated From**: /Users/kul/git/tib/tp-helm-charts
 
