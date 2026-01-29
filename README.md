@@ -106,8 +106,8 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - 🎁 **Benefits**: Streamlines firewall approval process, prevents connectivity issues, ensures ARO cluster health
 
 **Related Documentation**:
-- [Firewall Requirements for AKS](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements.md) - Azure Kubernetes Service specific requirements
-- [Firewall Requirements for EKS](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements-eks.md) - Amazon EKS specific requirements with AWS endpoints and VPC configuration
+- [Firewall Requirements for AKS](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements.html) - Azure Kubernetes Service specific requirements
+- [Firewall Requirements for EKS](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements-eks.html) - Amazon EKS specific requirements with AWS endpoints and VPC configuration
 
 ---
 
@@ -222,8 +222,8 @@ graph TD
 
 ### Related Workshop Repositories
 - [TIBCO Platform on AKS Workshop](https://github.com/tibco-bnl/workshop-tp-aks) - Azure Kubernetes Service deployment guides
-  - [AKS Firewall Requirements](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements.md)
-  - [EKS Firewall Requirements](https://github.com/tibco-bnl/workshop-tp-aks/blob/main/docs/firewall-requirements-eks.md)
+  - [AKS Firewall Requirements](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements.html)
+  - [EKS Firewall Requirements](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements-eks.html)
 
 ### Observability and Monitoring
 - [Elastic Cloud on Kubernetes (ECK)](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)
