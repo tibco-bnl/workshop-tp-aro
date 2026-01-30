@@ -53,11 +53,11 @@ These registries host the container images used by TIBCO Platform, OpenShift, an
 
 ### Red Hat Container Registries (CRITICAL for ARO)
 
-| URL | Port | Protocol | Purpose |
-|-----|------|----------|---------|
-| `registry.redhat.io` | 443 | HTTPS | **Red Hat certified images** (requires Red Hat credentials) |
-| `quay.io` | 443 | HTTPS | **Red Hat Quay** - OpenShift container images |
-| `registry.connect.redhat.com` | 443 | HTTPS | Red Hat Container Catalog - Certified partner images |
+| URL | Port | Protocol | Purpose | Images Used |
+|-----|------|----------|---------|-------------|
+| `registry.redhat.io` | 443 | HTTPS | **Red Hat certified images** (requires Red Hat credentials) | OpenShift platform images |
+| `quay.io` | 443 | HTTPS | **Red Hat Quay** - OpenShift container images and TIBCO Platform components | OAuth2 Proxy v7.1.0 (used with Jaeger UI for authentication), Prometheus Operator components (config reloader for observability stack), OpenShift infrastructure images |
+| `registry.connect.redhat.com` | 443 | HTTPS | Red Hat Container Catalog - Certified partner images | Red Hat certified partner images |
 
 **⚠️ IMPORTANT:** Red Hat registries require authentication. ARO clusters use pull secrets for access.
 
