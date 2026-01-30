@@ -10,7 +10,7 @@ This document lists all external URLs and endpoints that need to be accessible f
 ## Summary
 
 The TIBCO Platform deployment on ARO requires access to:
-- **9 Container Registries** for pulling images (including Red Hat registries)
+- **6 Container Registries** for pulling images (TIBCO JFrog, Red Hat, Docker Hub, Quay.io, GitHub)
 - **5 Helm Chart Repositories** for downloading charts
 - **8+ External Services** for Kubernetes, monitoring, and documentation
 - **5 Azure-specific endpoints** for storage and management
@@ -47,12 +47,10 @@ These registries host the container images used by TIBCO Platform, OpenShift, an
 
 ### Public Container Registries
 
-| URL | Port | Protocol | Purpose |
-|-----|------|----------|---------|
-| `docker.io` | 443 | HTTPS | Docker Hub - Third-party and open-source images |
-| `ghcr.io` | 443 | HTTPS | GitHub Container Registry - Community images |
-| `k8s.io` | 443 | HTTPS | Kubernetes official images |
-| `kubernetes.io` | 443 | HTTPS | Kubernetes documentation and tools |
+| URL | Port | Protocol | Purpose | Images Used |
+|-----|------|----------|---------|-------------|
+| `docker.io` | 443 | HTTPS | Docker Hub - PostgreSQL and Jaeger tracing | PostgreSQL (bitnami/postgresql:16.4.0), Jaeger (jaegertracing/*) |
+| `ghcr.io` | 443 | HTTPS | GitHub Container Registry - Message Gateway | TIBCO Message Gateway (tibco/msg-platform-cicd) |
 
 ---
 
@@ -128,18 +126,7 @@ These repositories host the Helm charts for TIBCO Platform and dependencies.
 
 ---
 
-## 5. Kubernetes and Cloud Provider APIs
-
-### Kubernetes API Endpoints
-
-| URL | Port | Protocol | Purpose |
-|-----|------|----------|---------|
-| `kubernetes.io` | 443 | HTTPS | Kubernetes documentation and API references |
-| `k8s.io` | 443 | HTTPS | Kubernetes package repositories |
-
----
-
-## 6. Monitoring and Observability
+## 5. Monitoring and Observability
 
 | URL | Port | Protocol | Purpose |
 |-----|------|----------|---------|
@@ -150,7 +137,7 @@ These repositories host the Helm charts for TIBCO Platform and dependencies.
 
 ---
 
-## 7. Source Code and Documentation
+## 6. Source Code and Documentation
 
 | URL | Port | Protocol | Purpose |
 |-----|------|----------|---------|
@@ -158,10 +145,12 @@ These repositories host the Helm charts for TIBCO Platform and dependencies.
 | `*.githubusercontent.com` | 443 | HTTPS | GitHub raw content |
 | `ubuntu.com` | 443 | HTTPS | Ubuntu package repositories (for base images) |
 | `registry.access.redhat.com` | 443 | HTTPS | Red Hat base images |
+| `kubernetes.io` | 443 | HTTPS | Kubernetes documentation and API references |
+| `k8s.io` | 443 | HTTPS | Kubernetes documentation and tools |
 
 ---
 
-## 8. Internal Cluster Communication (No Firewall Rules Needed)
+## 7. Internal Cluster Communication (No Firewall Rules Needed)
 
 These are internal cluster services that communicate within the OpenShift cluster:
 
@@ -174,7 +163,7 @@ These are internal cluster services that communicate within the OpenShift cluste
 
 ---
 
-## 9. TIBCO Flogo Go Module Proxy (CRITICAL for Flogo Apps)
+## 8. TIBCO Flogo Go Module Proxy (CRITICAL for Flogo Apps)
 
 | URL | Port | Protocol | Purpose |
 |-----|------|----------|---------|
@@ -192,7 +181,7 @@ These are internal cluster services that communicate within the OpenShift cluste
 
 ---
 
-## 10. Complete Firewall Rules Summary
+## 9. Complete Firewall Rules Summary
 
 ### Outbound Rules (From ARO to Internet)
 
@@ -215,8 +204,8 @@ Destinations:
   - registry.access.redhat.com                # Red Hat base images
   
   # Container Registries
-  - docker.io                                 # Docker Hub
-  - ghcr.io                                   # GitHub Container Registry
+  - docker.io                                 # PostgreSQL, Jaeger
+  - ghcr.io                                   # Message Gateway
   
   # Helm Charts
   - charts.jetstack.io                        # cert-manager
@@ -241,8 +230,6 @@ Protocol: HTTPS (443)
 Destinations:
   - mcr.microsoft.com                         # Microsoft Container Registry
   - *.azurecr.io                              # Azure Container Registry
-  - k8s.io                                    # Kubernetes
-  - kubernetes.io                             # Kubernetes
   - github.com                                # GitHub
   - *.githubusercontent.com                   # GitHub raw content
   - *.file.core.windows.net                   # Azure Files
@@ -251,6 +238,8 @@ Destinations:
   - *.oms.opinsights.azure.com               # Azure Log Analytics
   - registry.connect.redhat.com               # Red Hat partner catalog
   - access.redhat.com                         # Red Hat customer portal
+  - kubernetes.io                             # Kubernetes docs
+  - k8s.io                                    # Kubernetes docs
 ```
 
 #### Optional (For Documentation and Troubleshooting)
