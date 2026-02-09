@@ -245,19 +245,49 @@ Use the retrieved password and the Kibana route URL (from `oc get route -n elast
 
 -----
 
-## 3\. Configure Kibana: Index Templates & Lifecycle Policies
+## 3\. Alternative Approach: Using TIBCO Platform Helm Chart for Observability Setup
+
+**Note:** As an alternative to manually configuring Elasticsearch and Kibana indices (described in Section 4), you can use the TIBCO Platform Data Plane observability helm chart which automates the entire setup process.
+
+### 3.1. TIBCO Platform Observability Helm Chart
+
+TIBCO provides a comprehensive helm chart that automates the installation and configuration of observability tools including Elasticsearch, Kibana, and all required index templates and lifecycle policies. This is an alternative to using the `dp-config-es` helm chart for manual index configuration.
+
+**Documentation and Installation Guide:**
+- **GitHub Repository:** [TIBCO Platform Data Plane Observability Setup](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift)/data-plane#install--configure-observability-tools)
+
+**When to use this approach:**
+- You want a fully automated observability setup
+- You prefer infrastructure-as-code approach using helm charts
+- You want to avoid manual index template and lifecycle policy configuration
+- You need a standardized, repeatable deployment process
+
+**Benefits:**
+- Automated installation of Elastic ECK, Elasticsearch, and Kibana
+- Pre-configured index templates for user app logs and Jaeger traces
+- Pre-configured lifecycle policies for log retention
+- Simplified deployment and configuration management
+- Consistent observability setup across multiple environments
+
+For detailed step-by-step instructions, refer to the [TIBCO Platform observability helm chart documentation](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift)/data-plane#install--configure-observability-tools).
+
+-----
+
+## 4\. Manual Configuration: Index Templates & Lifecycle Policies
+
+**Note:** This section describes the manual approach to configure Elasticsearch indices. If you prefer automation, refer to **Section 3** for the TIBCO Platform helm chart alternative.
 
 **Note:** For Elastic index templates you can also directly refer to helm chart templates: https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/charts/dp-config-es/templates
 
 These configurations are typically done via the Kibana UI (Stack Management \> Index Management) or a configuration management tool using Elasticsearch APIs.
 
-### 3.1. User App Logs
+### 4.1. User App Logs
 
-#### 3.1.1. Create Index Lifecycle Policy: `user-index-60d-lifecycle-policy`
+#### 4.1.1. Create Index Lifecycle Policy: `user-index-60d-lifecycle-policy`
 
 Define a lifecycle policy for user application logs (e.g., hot phase with rollover, delete phase after 60 days).
 
-#### 3.1.2. Create Index Template: `user-app-index`
+#### 4.1.2. Create Index Template: `user-app-index`
 
   * **Name:** `user-app-index`
   * **Index pattern:** `user-app-*`
@@ -355,9 +385,9 @@ Define a lifecycle policy for user application logs (e.g., hot phase with rollov
 
 -----
 
-### 3.2. Jaeger Traces
+### 4.2. Jaeger Traces
 
-#### 3.2.1. Create Index Lifecycle Policy: `jaeger-index-30d-lifecycle-policy`
+#### 4.2.1. Create Index Lifecycle Policy: `jaeger-index-30d-lifecycle-policy`
 
 This policy will be used for both Jaeger service and span indices.
 Define via UI or API:
@@ -400,7 +430,7 @@ Define via UI or API:
 }
 ```
 
-#### 3.2.2. Create Jaeger Service Trace Index Template
+#### 4.2.2. Create Jaeger Service Trace Index Template
 
   * **Name:** `jaeger-service-index-template`
   * **Index pattern:** `*jaeger-service-*`
@@ -472,7 +502,7 @@ Define via UI or API:
     }
     ```
 
-#### 3.2.3. Create Jaeger Span Trace Index Template
+#### 4.2.3. Create Jaeger Span Trace Index Template
 
   * **Name:** `jaeger-span-index-template`
   * **Index pattern:** `*jaeger-span-*`
@@ -646,11 +676,13 @@ Define via UI or API:
 
 -----
 
-## 4\. Configure Prometheus
+## 5\. Configure Prometheus
+
+**Note:** For detailed Prometheus configuration guidance, refer to the official TIBCO Platform documentation: [Configure Prometheus for Data Plane](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift)/data-plane#configure-prometheus)
 
 Prometheus is typically installed by default on OpenShift clusters as part of the cluster monitoring stack. To configure Prometheus scraping from a specific Data Plane (DP), you need to create a `ServiceMonitor` Custom Resource (CR) in the Data Plane's namespace.
 
-### 4.1. Create ServiceMonitor for Data Plane Scraping
+### 5.1. Create ServiceMonitor for Data Plane Scraping
 
 Use the following command to create the `ServiceMonitor` CR. This allows Prometheus to discover and scrape metrics from services (e.g., an OpenTelemetry Collector) in your Data Plane namespace.
 
@@ -857,7 +889,7 @@ After performing the certificate injection, if the HTTPS connection still fails 
 **Note:** The successful connection over HTTP after certificate injection is highly unusual for a standard Thanos Querier setup that enforces HTTPS. This documentation reflects a specific workaround found necessary in a particular ARO environment and may indicate an underlying anomaly in that environment or `o11y-service`'s network client behavior.
 -----
 
-## 5\. Reference Links
+## 6\. Reference Links
 
 ### Elastic Stack (ECK, Elasticsearch, Kibana)
 
