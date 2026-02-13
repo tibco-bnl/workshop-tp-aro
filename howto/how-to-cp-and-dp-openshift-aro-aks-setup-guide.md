@@ -1314,9 +1314,18 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
 > curl -O https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-merged.yaml
 > ```
 
-**Alternative: Inline values (minimal configuration)**
+**Alternative: Inline values (complete configuration)**
 
-If you prefer to use inline values for a simpler deployment, you can use the following command:
+If you prefer to use inline values instead of a separate values file, you can use the following command:
+
+> [!IMPORTANT]
+> **Critical Database Configuration**: The inline values below include **all required configuration sections** including:
+> - **Database connection details** (`db_host`, `db_name`, `db_port`, `db_secret_name`, `db_ssl_mode`)
+> - **Email server configuration** (for user activation and notifications)
+> - **Admin user configuration** (for initial platform administrator)
+> - **Encryption secret configuration** (for platform security)
+> 
+> If any of these sections are missing (especially the database configuration), the Control Plane deployment will fail with errors like "missing DBHost key in ConfigMap provider-cp-database-config".
 
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace \
@@ -1385,6 +1394,34 @@ global:
         requests:
           storage: 10Gi
       storageClassName: ${TP_FILE_STORAGE_CLASS}
+    # Database configuration
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_username: ${CP_DB_USERNAME}
+    db_password: ${CP_DB_PASSWORD}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+    # Uncomment for SSL/TLS database connections (Azure PostgreSQL)
+    # db_ssl_root_cert_secret_name: ${CP_DB_SSL_ROOT_CERT_SECRET_NAME}
+    # db_ssl_root_cert_filename: ${CP_DB_SSL_ROOT_CERT_FILENAME}
+    # Email server configuration
+    emailServerType: ${CP_EMAIL_SERVER_TYPE}
+    emailServer:
+      smtp:
+        server: ${CP_EMAIL_SMTP_SERVER}
+        port: ${CP_EMAIL_SMTP_PORT}
+        username: ${CP_EMAIL_SMTP_USERNAME}
+        password: ${CP_EMAIL_SMTP_PASSWORD}
+    # Admin user configuration
+    admin:
+      email: ${CP_ADMIN_EMAIL}
+      firstname: ${CP_ADMIN_FIRSTNAME}
+      lastname: ${CP_ADMIN_LASTNAME}
+      customerID: ${CP_ADMIN_CUSTOMER_ID}
+    # Encryption secret configuration
+    cpEncryptionSecretName: cporch-encryption-secret
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
     # uncomment following section if logging is enabled
     # logserver:
     #   endpoint: ${TP_LOGSERVER_ENDPOINT}
@@ -1393,6 +1430,18 @@ global:
     #   password: ${TP_LOGSERVER_PASSWORD}
 EOF
 ```
+
+> [!TIP]
+> **Verify Database Configuration After Deployment**: After the chart is installed, verify that the database configuration was correctly applied:
+> ```bash
+> # Check if the ConfigMap contains the DBHost key
+> kubectl get configmap provider-cp-database-config -n ${CP_INSTANCE_ID}-ns -o yaml | grep -i "host"
+> 
+> # Expected output should show:
+> #   DBHost: postgresql.tibco-ext.svc.cluster.local  (or your DB host)
+> ```
+> 
+> If the DBHost is missing from the ConfigMap, it indicates the database configuration was not included in the Helm values, and you'll need to redeploy with the corrected configuration.
 
 > [!NOTE]
 > The installation may take 15-30 minutes to complete. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
@@ -2100,6 +2149,68 @@ cat pull-secret.txt | jq .
 # Re-download from Red Hat Customer Portal if needed
 # https://console.redhat.com/openshift/install/azure/aro-provisioned
 ```
+
+### Common Control Plane Deployment Issues
+
+#### Missing DBHost in ConfigMap
+
+**Symptom:** During or after Control Plane installation, you encounter an error:
+```
+Error: missing DBHost key in ConfigMap {namespace}/provider-cp-database-config
+```
+
+**Root Cause:** The database configuration was not included in the Helm values during installation. Environment variables alone do not automatically flow into Helm charts unless explicitly referenced in the values.
+
+**Solution:**
+
+1. **Verify your environment variables are set:**
+```bash
+# Check if DB environment variables are exported
+echo "DB Host: ${CP_DB_HOST}"
+echo "DB Name: ${CP_DB_NAME}"
+echo "DB Port: ${CP_DB_PORT}"
+echo "DB Secret: ${CP_DB_SECRET_NAME}"
+echo "DB SSL Mode: ${CP_DB_SSL_MODE}"
+```
+
+2. **Ensure the Helm values include database configuration:**
+
+The Helm install/upgrade command **must** include this section under `global.external`:
+```yaml
+global:
+  external:
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+```
+
+3. **Verify after deployment:**
+```bash
+# Check if the ConfigMap contains the DBHost key
+kubectl get configmap provider-cp-database-config -n ${CP_INSTANCE_ID}-ns -o yaml | grep -i "host"
+
+# Expected output:
+#   DBHost: postgresql.tibco-ext.svc.cluster.local  (or your DB host)
+```
+
+4. **Fix by redeploying with corrected values:**
+
+**Option A:** Use the complete inline approach (see [Step 8.4](#step-84-install-tibco-control-plane-base-chart)) which now includes all required database configuration.
+
+**Option B:** Use the pre-validated values file:
+```bash
+curl -o tibco-cp-base-values-corrected.yaml \
+  https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-corrected.yaml
+
+helm upgrade --install --wait --timeout 1h \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-corrected.yaml
+```
+
+**Related:** See [Step 8.4: Install TIBCO Control Plane Base Chart](#step-84-install-tibco-control-plane-base-chart) for the complete and corrected installation command.
 
 ### Verify ARO Cluster Status
 
