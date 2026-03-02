@@ -690,7 +690,7 @@ EOF
 > - Database credentials and secrets configuration
 > - Troubleshooting common database issues
 > 
-> See the dedicated guide: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide.html)
+> See the dedicated guide: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide)
 > 
 > **Official TIBCO Documentation**: [PostgreSQL Management Script](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/scripts/database/README.md)
 
@@ -777,7 +777,7 @@ oc label namespace tibco-ext networking.platform.tibco.com/non-cp-ns=enable --ov
 Instead of deploying PostgreSQL on the cluster, you can use **Azure Database for PostgreSQL Flexible Server** as a managed SaaS solution. This provides better scalability, automated backups, and enterprise-grade security.
 
 > [!TIP]
-> For complete Azure PostgreSQL setup including SSL configuration, database schema management using TIBCO's `postgres-helper.bash` script, and advanced troubleshooting, see: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide.html)
+> For complete Azure PostgreSQL setup including SSL configuration, database schema management using TIBCO's `postgres-helper.bash` script, and advanced troubleshooting, see: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide)
 
 **Prerequisites for Azure PostgreSQL:**
 1. Azure Database for PostgreSQL Flexible Server instance created
@@ -1010,7 +1010,7 @@ oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:
 These permissions ensure that Control Plane components can access required resources and run with the security context defined in the custom `tp-scc` we created earlier, which provides the minimum required privileges while maintaining security best practices.
 
 > [!IMPORTANT]
-> **Troubleshooting SCC Permissions**: If you encounter pod creation errors with messages like "forbidden: unable to validate against any security context constraint", refer to the [SCC Permissions Troubleshooting Guide](aro-kul/troubleshooting-scc-permissions.html) for detailed resolution steps. This is a common issue that occurs when SCC permissions are not properly granted before deployment.
+> **Troubleshooting SCC Permissions**: If you encounter pod creation errors with messages like "forbidden: unable to validate against any security context constraint", refer to the [SCC Permissions Troubleshooting Guide](aro-kul/troubleshooting-scc-permissions) for detailed resolution steps. This is a common issue that occurs when SCC permissions are not properly granted before deployment.
 
 ### Step 8.2: Configure Certificates and DNS Records
 
@@ -1055,7 +1055,7 @@ oc label namespace openshift-ingress networking.platform.tibco.com/non-cp-ns=ena
 ```
 
 > [!NOTE]
-> **Windows Users**: If you are running this setup on a Windows environment, refer to the comprehensive [Windows Certificate and DNS Setup Guide](aro-kul/windows-certificate-dns-setup-guide.html) which covers certificate generation using Docker Desktop, WSL2, and PowerShell native methods.
+> **Windows Users**: If you are running this setup on a Windows environment, refer to the comprehensive [Windows Certificate and DNS Setup Guide](aro-kul/windows-certificate-dns-setup-guide) which covers certificate generation using Docker Desktop, WSL2, and PowerShell native methods.
 
 #### Install Certbot (Alpine Docker)
 
