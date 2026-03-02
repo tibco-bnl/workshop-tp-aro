@@ -1,7 +1,9 @@
+---
+layout: default
+title: TIBCO Platform Observability Setup on ARO
+---
 
 **Note:** This documentation is expanded and created from a base reference documentation as desribed here: [tp-helm-charts/Install and configure observability](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift)/data-plane#install--configure-observability-tools)
-
-
 
 # How to Install Elastic ECK and Prometheus on OpenShift ARO for Data Plane Observability
 

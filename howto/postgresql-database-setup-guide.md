@@ -1,3 +1,8 @@
+---
+layout: default
+title: PostgreSQL Database Setup and Management for TIBCO Platform
+---
+
 # PostgreSQL Database Setup and Management for TIBCO Platform
 
 This guide provides instructions for setting up and managing PostgreSQL databases for TIBCO Platform Control Plane deployments on Azure Red Hat OpenShift (ARO) and other Kubernetes environments.

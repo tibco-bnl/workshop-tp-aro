@@ -1,3 +1,8 @@
+---
+layout: default
+title: TIBCO Platform - Customer Prerequisites Checklist
+---
+
 # TIBCO Platform - Customer Prerequisites Checklist
 
 **Document Purpose**: This checklist outlines the requirements that must be in place **before** TIBCO Platform Control Plane and Data Plane installation begins.

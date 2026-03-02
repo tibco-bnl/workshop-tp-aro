@@ -1,3 +1,8 @@
+---
+layout: default
+title: TIBCO Platform Control Plane and Data Plane Setup on ARO
+---
+
 # How to Set Up Azure Red Hat OpenShift (ARO) Cluster and Deploy TIBCO Platform Control Plane and Data Plane
 
 ## Original documentation can be found and referred in future here: 

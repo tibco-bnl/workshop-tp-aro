@@ -1,3 +1,8 @@
+---
+layout: default
+title: How to Add DNS Records for ARO Routes in Azure
+---
+
 # How to Add DNS Records for Azure Red Hat OpenShift (ARO) Routes
 
 This guide provides step-by-step instructions for creating DNS records in Azure DNS zones for OpenShift routes, specifically for TIBCO Platform deployments on ARO clusters.

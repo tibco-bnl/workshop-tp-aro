@@ -1,0 +1,47 @@
+# GitHub Pages Configuration
+# This file configures Jekyll to properly render Mermaid diagrams
+
+# Theme (GitHub Pages default)
+theme: jekyll-theme-cayman
+
+# Markdown processor
+markdown: kramdown
+
+# Kramdown settings
+kramdown:
+  input: GFM  # GitHub Flavored Markdown
+  hard_wrap: false
+  parse_block_html: true  # Required for Mermaid diagrams
+  syntax_highlighter: rouge
+  auto_ids: true  # Enable automatic heading IDs for anchor links
+  toc_levels: 1..6  # Table of contents levels
+
+# Site settings
+title: TIBCO Platform on ARO Workshop
+description: Comprehensive guides for deploying TIBCO Platform on Azure Red Hat OpenShift (ARO)
+repository: tibco-bnl/workshop-tp-aro
+
+# Enable GitHub metadata
+plugins:
+  - jekyll-github-metadata
+  - jekyll-relative-links
+
+# Relative links configuration
+relative_links:
+  enabled: true
+  collections: true
+
+# Include files
+include:
+  - README.md
+  - howto
+  - scripts
+  - docs
+
+# Exclude files from site generation
+exclude:
+  - .git
+  - .gitignore
+  - "*.yaml"
+  - LICENSE
+  - support.md
