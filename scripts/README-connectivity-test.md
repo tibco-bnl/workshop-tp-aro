@@ -370,19 +370,19 @@ oc get pods -n openshift-ingress
 
 ## Related Documentation
 
-- [Firewall Requirements](../docs/firewall-requirements.md) - Complete list of required endpoints including ARO-specific requirements
-- [Network Security Group Rules](../docs/firewall-requirements.md#10-network-security-group-nsg-rules-for-azure)
-- [Azure Firewall Rules](../docs/firewall-requirements.md#11-azure-firewall-application-rules)
-- [Firewall Request Template](../docs/firewall-requirements.md#17-simplified-firewall-request-template)
-- [OpenShift Proxy Configuration](../docs/firewall-requirements.md#12-proxy-configuration)
+- [Firewall Requirements](../docs/firewall-requirements.html) - Complete list of required endpoints including ARO-specific requirements
+- [Network Security Group Rules](../docs/firewall-requirements.html#10-network-security-group-nsg-rules-for-azure)
+- [Azure Firewall Rules](../docs/firewall-requirements.html#11-azure-firewall-application-rules)
+- [Firewall Request Template](../docs/firewall-requirements.html#17-simplified-firewall-request-template)
+- [OpenShift Proxy Configuration](../docs/firewall-requirements.html#12-proxy-configuration)
 
 ## Support
 
 If connectivity tests fail:
 
-1. Review the [firewall requirements document](../docs/firewall-requirements.md)
+1. Review the [firewall requirements document](../docs/firewall-requirements.html)
 2. Contact your network/security team with the test results
-3. Use the [firewall request template](../docs/firewall-requirements.md#sample-firewall-request-form) to request access
+3. Use the [firewall request template](../docs/firewall-requirements.html#sample-firewall-request-form) to request access
 4. Emphasize ARO-specific requirements (Red Hat registries are CRITICAL)
 5. Re-run tests after firewall changes are applied
 6. Monitor ARO cluster operators: `oc get clusteroperators`
