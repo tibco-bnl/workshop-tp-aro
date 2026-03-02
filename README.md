@@ -20,7 +20,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🏗️ Complete Setup Guides
 
-#### [📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide.md)
+#### [📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 **Comprehensive guide for complete TIBCO Platform deployment**
 - 🎯 **Scope**: ARO cluster creation + Control Plane + Data Plane on same cluster
 - 🔧 **Features**: 
@@ -33,7 +33,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - 📋 **Use Case**: Workshop environments, evaluation setups, complete standalone deployments
 - ⏱️ **Duration**: 3-4 hours for complete setup
 
-#### [📖 How to Set Up ARO Cluster for Data Plane Only](./howto/how-to-dp-openshift-aro-aks-setup-guide.md)
+#### [📖 How to Set Up ARO Cluster for Data Plane Only](./howto/how-to-dp-openshift-aro-aks-setup-guide)
 **Streamlined guide for Data Plane-only deployments**
 - 🎯 **Scope**: ARO cluster creation + Data Plane only (connects to SaaS Control Plane)
 - 🔧 **Features**:
@@ -46,7 +46,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🔍 Observability Setup
 
-#### [📖 How to Install Observability for Data Plane](./howto/how-to-dp-openshift-observability.md)
+#### [📖 How to Install Observability for Data Plane](./howto/how-to-dp-openshift-observability)
 **Complete observability stack setup for TIBCO Platform**
 - 🎯 **Scope**: Elastic ECK + Prometheus + Grafana for monitoring and logging
 - 🔧 **Features**:
@@ -60,7 +60,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🌐 DNS and Networking
 
-#### [📖 How to Add DNS Records for ARO Routes](./howto/how-to-add-dns-records-aro-azure.md)
+#### [📖 How to Add DNS Records for ARO Routes](./howto/how-to-add-dns-records-aro-azure)
 **DNS management for TIBCO Platform services**
 - 🎯 **Scope**: Azure DNS configuration for ARO ingress routing
 - 🔧 **Features**:
@@ -73,7 +73,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 📋 Prerequisites and Planning
 
-#### [📖 Customer Prerequisites Checklist](./howto/prerequisites-checklist-for-customer.md)
+#### [📖 Customer Prerequisites Checklist](./howto/prerequisites-checklist-for-customer)
 **Comprehensive pre-installation requirements checklist**
 - 🎯 **Scope**: Complete prerequisites for Control Plane and Data Plane installation
 - 🔧 **Features**:
@@ -89,7 +89,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - ⏱️ **Preparation Time**: 3-5 business days
 - 🎁 **Benefits**: Reduces deployment delays, ensures all requirements met before installation day
 
-#### [📖 Firewall Requirements and Network Connectivity](./docs/firewall-requirements-aro.md)
+#### [📖 Firewall Requirements and Network Connectivity](./docs/firewall-requirements-aro)
 **Complete firewall and network requirements for TIBCO Platform deployment on ARO**
 - 🎯 **Scope**: All external endpoints required for TIBCO Platform and OpenShift on ARO
 - 🔧 **Features**:
@@ -148,7 +148,7 @@ graph TD
 - ✅ Development and testing environments
 - ✅ Proof of concepts and demos
 
-**Follow:** [Complete Setup Guide](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide.md)
+**Follow:** [Complete Setup Guide](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 
 ### Scenario 2: ARO Data Plane Connected to SaaS Control Plane
 ```mermaid
@@ -167,7 +167,7 @@ graph TD
 - ✅ Regional data plane deployments
 - ✅ Connecting to existing SaaS Control Plane
 
-**Follow:** [Data Plane Only Guide](./howto/how-to-dp-openshift-aro-aks-setup-guide.md)
+**Follow:** [Data Plane Only Guide](./howto/how-to-dp-openshift-aro-aks-setup-guide)
 
 ### Scenario 3: Enhanced Observability Setup
 ```mermaid
@@ -189,7 +189,7 @@ graph TD
 - ✅ Troubleshooting and diagnostics
 - ✅ Compliance and audit requirements
 
-**Follow:** [Observability Setup Guide](./howto/how-to-dp-openshift-observability.md)
+**Follow:** [Observability Setup Guide](./howto/how-to-dp-openshift-observability)
 
 ## 🛠️ Architecture Overview
 
