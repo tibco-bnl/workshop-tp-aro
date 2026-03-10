@@ -1,11 +1,37 @@
 # TIBCO Platform on Azure Red Hat OpenShift (ARO) Workshop
 
-> **Current Release:** [v1.14.0](./releases/v1.14.0) | **TIBCO Platform CP Version:** 1.14.0  
-> 📋 **Release History:** See `releases` folder for all versions
+> **Current Release:** [v1.15.0](./releases/v1.15.0) | **TIBCO Platform CP Version:** 1.15.0  
+> 📋 **Release History:** See `releases` folder for all versions  
+> 🔄 **Upgrading from 1.14.0?** See the [1.15.0 Release Notes](./releases/v1.15.0#upgrade-path)
 
 This repository provides comprehensive guides and resources for deploying **TIBCO Platform** on **Azure Red Hat OpenShift (ARO)** clusters. It covers multiple deployment scenarios from basic ARO cluster setup to full Control Plane and Data Plane deployments with observability.
 
-##  What This Repository Helps You Setup
+## 🎯 Version Selection
+
+**⚠️ Important:** TIBCO Platform version 1.15.0 includes breaking changes from 1.14.0. Choose the appropriate documentation for your deployment:
+
+### 🌟 Version 1.15.0 (Current - Recommended for New Deployments)
+- ✅ **Latest Features**: Enhanced security, improved network policies, OpenShift Router support
+- ✅ **New Capabilities**: Event processing, updated Developer Hub 1.15.14
+- ✅ **Better Observability**: Improved monitoring and logging stack
+- ✅ **OpenShift Native**: Enhanced Security Context Constraints and Router integration
+- 📘 [Setup Guide: CP + DP (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
+- 📘 [Setup Guide: DP Only  (v1.15)](./howto/v1.15/how-to-dp-openshift-aro-aks-setup-guide)
+- 📋 [Release Notes (v1.15.0)](./releases/v1.15.0)
+
+### 📦 Version 1.14.0 (Previous Release)
+- ✅ **Proven Stability**: Production-tested and widely deployed
+- ✅ **Complete Documentation**: Comprehensive battle-tested guides
+- 📘 [Setup Guide: CP + DP (v1.14)](./howto/v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
+- 📘 [Setup Guide: DP Only (v1.14)](./howto/v1.14/how-to-dp-openshift-aro-aks-setup-guide)
+- 📋 [Release Notes (v1.14.0)](./releases/v1.14.0)
+
+### 🔄 Upgrading from v1.14.0 to v1.15.0
+TIBCO provides an automated upgrade script. See the [Upgrade Path section](./releases/v1.15.0#upgrade-path) in the v1.15.0 release notes.
+
+---
+
+## 🎯 What This Repository Helps You Setup
 
 ### 1. **TIBCO Platform Control Plane (CP) + Data Plane (DP) on Same ARO Cluster**
 Deploy a complete TIBCO Platform environment with both Control Plane and Data Plane on a single ARO cluster for evaluation and workshop purposes.
@@ -18,31 +44,31 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ## 📚 Documentation Structure
 
-### 🏗️ Complete Setup Guides
+### 🏗️ Version-Specific Setup Guides
 
-#### [📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
-**Comprehensive guide for complete TIBCO Platform deployment**
-- 🎯 **Scope**: ARO cluster creation + Control Plane + Data Plane on same cluster
-- 🔧 **Features**: 
-  - Azure environment preparation and ARO cluster creation
-  - PostgreSQL and MailDev setup for Control Plane
-  - Security Context Constraints and storage configuration
-  - Wildcard DNS and certificate management
-  - Complete Control Plane and Data Plane deployment
-  - Admin user setup and initial password retrieval
-- 📋 **Use Case**: Workshop environments, evaluation setups, complete standalone deployments
-- ⏱️ **Duration**: 3-4 hours for complete setup
+#### Version 1.15.0 (Current Release)
+**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
+- 🎯 **Scope**: Complete TIBCO Platform 1.15.0 deployment on ARO
+- 🔧 **New Features**: Enhanced secrets management, OpenShift Router support, improved SCCs
+- ⏱️ **Duration**: 3-4 hours
 
-#### [📖 How to Set Up ARO Cluster for Data Plane Only](./howto/how-to-dp-openshift-aro-aks-setup-guide)
-**Streamlined guide for Data Plane-only deployments**
-- 🎯 **Scope**: ARO cluster creation + Data Plane only (connects to SaaS Control Plane)
-- 🔧 **Features**:
-  - Simplified ARO cluster setup
-  - Data Plane specific configurations
-  - Connection to existing TIBCO Platform SaaS Control Plane
-  - Capability provisioning (BWCE, Flogo)
-- 📋 **Use Case**: Connecting to SaaS Control Plane, edge deployments, regional data planes
+**[📖 How to Set Up ARO Cluster for Data Plane Only (v1.15)](./howto/v1.15/how-to-dp-openshift-aro-aks-setup-guide)**
+- 🎯 **Scope**: Data Plane 1.15.0 deployment connecting to SaaS Control Plane
+- 🔧 **Features**: Simplified deployment with updated infrastructure charts
 - ⏱️ **Duration**: 1-2 hours
+
+#### Version 1.14.0 (Previous Release)
+**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.14)](./howto/v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
+- 🎯 **Scope**: Complete TIBCO Platform 1.14.0 deployment on ARO
+- 📋 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, CP + DP deployment
+- ⏱️ **Duration**: 3-4 hours
+
+**[📖 How to Set Up ARO Cluster for Data Plane Only (v1.14)](./howto/v1.14/how-to-dp-openshift-aro-aks-setup-guide)**
+- 🎯 **Scope**: Data Plane 1.14.0 deployment connecting to SaaS Control Plane
+- 📋 **Features**: Simplified ARO setup, DP configurations, capability provisioning
+- ⏱️ **Duration**: 1-2 hours
+
+### 🔍 Shared Documentation (Compatible with Both Versions)
 
 ### 🔍 Observability Setup
 
