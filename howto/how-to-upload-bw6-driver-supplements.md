@@ -299,10 +299,10 @@ After uploading the driver supplements, verify they are available for use:
 ## Reference
 
 **Official TIBCO Documentation**:
-- [Supplementing Drivers - TIBCO Platform 1.15.0](https://docs.tibco.com/pub/platform-cp/1.15.0/doc/html/Default.htm#Subsystems/bwce-capability/bwce-user-guide/supplementing-drivers.htm)
+- [Supplementing Drivers - TIBCO Platform](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Subsystems/bwce-capability/bwce-user-guide/supplementing-drivers.htm)
 
 **Related Workshop Guides**:
-- [TIBCO Platform Data Plane Setup on ARO](how-to-dp-openshift-aro-aks-setup-guide.md)
+- [TIBCO Platform Data Plane Setup on ARO](how-to-dp-openshift-aro-aks-setup-guide)
 
 ---
 

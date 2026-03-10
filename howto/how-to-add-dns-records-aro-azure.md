@@ -582,7 +582,7 @@ az network dns record-set a add-record \
 ### TIBCO Platform Specific
 - [TIBCO Platform ARO Setup Guide](../how-to-cp-and-dp-openshift-aro-aks-setup-guide) - Complete ARO deployment guide
 - [TIBCO Platform Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm) - Official platform documentation
-- [TIBCO Platform Administration - Signing to Platform Console](https://docs.tibco.com/pub/platform-cp/1.10.0/doc/html/Administration/signing-to-platform-console.htm)
+- [TIBCO Platform Administration - Signing to Platform Console](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Administration/signing-to-platform-console.htm)
 
 ### Azure and OpenShift
 - [Azure DNS Documentation](https://docs.microsoft.com/en-us/azure/dns/) - Azure DNS service documentation
