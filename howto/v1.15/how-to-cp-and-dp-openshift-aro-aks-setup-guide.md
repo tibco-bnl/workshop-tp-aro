@@ -1,319 +1,2531 @@
 ---
 layout: default
-title: How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15.0)
+title: TIBCO Platform Control Plane and Data Plane Setup on ARO (v1.15.0)
 ---
 
-# How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15.0)
+# How to Set Up Azure Red Hat OpenShift (ARO) Cluster and Deploy TIBCO Platform Control Plane and Data Plane (v1.15.0)
 
-> **Version:** 1.15.0 | **Platform:** Azure Red Hat OpenShift (ARO) | **Last Updated:** March 10, 2026
+## Original documentation can be found and referred in future here: 
+[ARO docs from tp-helm-charts](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift))
 
-**📌 Important Version Information**
-- This guide is for TIBCO Platform Control Plane **version 1.15.0**
-- For version 1.14.0 documentation, see [v1.14 guide](../v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
-- For upgrade instructions from 1.14.0 to 1.15.0, see [Release Notes](../../releases/v1.15.0#upgrade-path)
+This document is with extra details while following the above document and make all the things working.
+
+> [!NOTE]
+> **Version 1.15.0 Update**: This document has been updated to reflect the latest TIBCO Platform Control Plane version 1.15.0. Key changes include:
+> - **Helm 3.13+ Required**: New label-based deployment tracking with `--labels layer=number`
+> - **Mandatory Secrets**: Session keys and encryption secrets now required (were optional in 1.14.0)
+> - **OpenShift Router Support**: Native OpenShift Router now fully supported as Ingress Controller
+> - **Enhanced Security**: Improved secrets management with `cporch-encryption-secret`
+> - **Network Policy Updates**: Enhanced namespace labeling requirements
+> - **Certificate Structure**: Separate certificates for `my` and `tunnel` domains recommended
+> - Updated chart versions (tibco-cp-base 1.15.0)
+> - Based on tp-helm-charts version 1.15.0
+
+> [!WARNING]
+> **Breaking Changes from v1.14.0**: If you're upgrading from v1.14.0, please review the [upgrade path](../../releases/v1.15.0#upgrade-path) before proceeding. Key breaking changes include Helm 3.13+ requirement, mandatory secrets, and updated network policies. 
+
+Note: This document is copy of gh-pages doc from [here:](https://tibco-bnl.github.io/workshop-tibco-platform/docs/howto/how-to-dp-openshift-aro-aks-setup-guide.html#get-openshift-ingress-domain) hence links in table of contents will not work if you are viewing in google docs. 
 
 ## Table of Contents
-- [Overview](#overview)
+<!-- TOC -->
+- [Introduction](#introduction)
 - [What's New in v1.15.0](#whats-new-in-v150)
 - [Prerequisites](#prerequisites)
-- [Architecture](#architecture)
-- [Deployment Steps](#deployment-steps)
-- [Troubleshooting](#troubleshooting)
-- [Next Steps](#next-steps)
+- [Using a Prebuilt Docker Container for CLI Tools](#using-a-prebuilt-docker-container-for-cli-tools)
+- [Step 1: Prepare Azure Environment](#step-1-prepare-azure-environment)
+- [Step 2: Create Networking Resources](#step-2-create-networking-resources)
+- [Step 3: Create ARO Cluster](#step-3-create-aro-cluster)
+- [Step 4: Permissions and Role Assignments](#step-4-permissions-and-role-assignments)
+- [Step 5: Connect to the Cluster](#step-5-connect-to-the-cluster)
+- [Step 6: Configure Security Context Constraints](#step-6-configure-security-context-constraints)
+- [Step 7: Configure Shared Infrastructure](#step-7-configure-shared-infrastructure)
+  - [Step 7.1: Export Variables for Both Control Plane and Data Plane](#step-71-export-variables-for-both-control-plane-and-data-plane)
+  - [Step 7.2: Configure Ingress Controller](#step-72-configure-ingress-controller)
+  - [Step 7.3: Install Storage Classes](#step-73-install-storage-classes)
+  - [Step 7.4: Install PostgreSQL](#step-74-install-postgresql)
+- [Step 8: TIBCO Platform Control Plane Setup](#step-8-tibco-platform-control-plane-setup)
+  - [Step 8.1: Create Control Plane Namespace and Service Account](#step-81-create-control-plane-namespace-and-service-account)
+  - [Step 8.2: Configure Certificates and DNS Records](#step-82-configure-certificates-and-dns-records)
+  - [Step 8.3: Generate Session Keys Secret](#step-83-generate-session-keys-secret)
+  - [Step 8.4: Install TIBCO Control Plane Base Chart](#step-84-install-tibco-control-plane-base-chart)
+  - [Step 8.5: Verify Helm Chart Deployment](#step-85-verify-helm-chart-deployment)
+  - [Step 8.6: Access Control Plane and Retrieve Initial Admin Password](#step-86-access-control-plane-and-retrieve-initial-admin-password)
+- [Step 9: TIBCO Platform Data Plane Setup](#step-9-tibco-platform-data-plane-setup)
+  - [Step 9.1: Configure Observability](#step-91-configure-observability)
+  - [Step 9.2: Deploy TIBCO Platform Data Plane](#step-92-deploy-tibco-platform-data-plane)
+- [Step 10: Provision TIBCO BWCE and Flogo Capabilities from the GUI](#step-10-provision-tibco-bwce-and-flogo-capabilities-from-the-gui)
+- [Step 11: Clean Up](#step-11-clean-up)
+- [References](#references)
+- [Troubleshooting and Cluster Information Commands](#troubleshooting-and-cluster-information-commands)
+<!-- TOC -->
 
 ---
 
-## Overview
+## Introduction
 
-This guide provides comprehensive instructions for deploying **TIBCO Platform Control Plane version 1.15.0** along with Data Plane on Azure Red Hat OpenShift (ARO).
+This guide provides step-by-step instructions to set up an Azure Red Hat OpenShift (ARO) cluster and deploy both the TIBCO Platform Control Plane and Data Plane version **1.15.0** on it. You can deploy either:
 
-### What You'll Deploy
-- **Azure Red Hat OpenShift (ARO) Cluster** with appropriate node sizing
-- **TIBCO Platform Control Plane 1.15.0** with enhanced security features
-- **TIBCO Platform Data Plane 1.15.0** for running BWCE and Flogo applications
-- **PostgreSQL 16** database for Control Plane metadata
-- **OpenShift Router** for ingress routing
-- **Azure Storage** - Azure Disk and Azure Files storage classes
+- **Control Plane only**: For managing multiple data planes across different clusters
+- **Data Plane only**: When connecting to an existing SaaS Control Plane
+- **Both Control Plane and Data Plane**: On the same ARO cluster for a complete standalone setup
 
-### Deployment Time
-- **Total Duration:** 3-4 hours
-- **ARO Setup:** 45-60 minutes
-- **Control Plane:** 1-1.5 hours
-- **Data Plane:** 1-1.5 hours
+**This guide assumes you are deploying both Control Plane and Data Plane on the same ARO cluster**, which is the most common scenario for workshops and evaluations. Common infrastructure components (storage classes, ingress configuration, etc.) are shared between both deployments.
+
+This guide is intended for workshop and evaluation purposes, **for production every user needs to take best decision based on their enterprise policies**.
+
+> [!NOTE]
+> **Environment Variables Organization**: All environment variables required throughout this guide have been consolidated in [Step 7.1: Export Variables for Both Control Plane and Data Plane](#step-71-export-variables-for-both-control-plane-and-data-plane). This organization eliminates duplication and provides a single location to configure all deployment parameters. Individual sections will reference these centralized variables.
 
 ---
 
 ## What's New in v1.15.0
 
 ### Breaking Changes
-- ⚠️ **Helm 3.13+ Required**: New label-based deployment tracking
-- ⚠️ **New Secret Requirements**: Session keys and encryption secrets now mandatory
-- ⚠️ **Certificate Structure Changed**: Separate certificates for `my` and `tunnel` domains recommended
-- ⚠️ **Network Policy Updates**: Enhanced namespace labeling requirements
-- ⚠️ **OpenShift Router Support**: Native OpenShift Router now fully supported as Ingress Controller
+
+⚠️ **Important:** Review these breaking changes before upgrading or deploying:
+
+- **Helm 3.13+ Required**: Minimum Helm version increased to 3.13.0 for label support (`--labels layer=number`)
+- **Mandatory Secrets**: Session keys (`session-keys`) and encryption secrets (`cporch-encryption-secret`) are now required (were optional in 1.14.0)
+- **Network Policy Changes**: Enhanced namespace labeling requirements with new label structure using `platform.tibco.com` labels
+- **Certificate Structure**: Separate certificates for `my` and `tunnel` domains now recommended for better security isolation
+- **DNS Naming Convention**: Simplified from three-level to one-level subdomain ownership
+- **Environment Variables**: New naming conventions with `TP_` and `CP_` prefixes for better organization
+- **OpenShift Router Configuration**: Different ingress configuration compared to standard Kubernetes ingress controllers
 
 ### New Features
-- ✅ **Unified Chart Deployment**: Simplified `tibco-cp-base` chart structure
-- ✅ **Enhanced Security**: Improved secrets management and encryption
-- ✅ **OpenShift SCC Support**: Better Security Context Constraints integration
-- ✅ **Developer Hub 1.15.14**: Updated with new capabilities
-- ✅ **Observability Service 1.15.19**: Enhanced monitoring integration
-- ✅ **Event Processing**: New addon for event-driven architectures
 
-### Compatibility
-- **OpenShift:** 4.14+ on Azure Red Hat OpenShift (ARO)
-- **Helm:** 3.13+
-- **PostgreSQL:** 16.x
-- **Azure:** ARO with OpenShift 4.14+
+✅ **Enhanced Features in v1.15.0**:
+
+- **Unified Chart Deployment**: Simplified deployment using `tibco-cp-base` chart version 1.15.0
+- **Enhanced Security**: Improved secrets management with mandatory session keys and encryption secrets
+- **OpenShift Router Support**: Native OpenShift Router integration for ARO deployments
+- **Better Security Context Constraints**: Enhanced SCC support for TIBCO Platform components
+- **Developer Hub 1.15.14**: Updated developer portal with improved user experience
+- **Observability Service 1.15.19**: Enhanced monitoring and logging capabilities
+- **Event Processing Addon 1.15.0**: New capabilities for event-driven architectures
+- **Improved Network Policies**: Better namespace labeling and network isolation
+
+### Official TIBCO Features
+
+> **Source:** [Official TIBCO Platform 1.15.0 Release Notes](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Release-Notes/new-features.htm)
+
+For complete feature list, see [v1.15.0 Release Notes](../../releases/v1.15.0)
 
 ---
 
 ## Prerequisites
 
-### 1. Azure Requirements
-- ✅ **Azure Subscription** with appropriate permissions
-- ✅ **Resource Group** or permissions to create one
-- ✅ **Azure CLI** installed and configured (version 2.50+)
-- ✅ **OpenShift CLI (oc)** installed (version 4.14+)
-- ✅ **kubectl** installed (version 1.27+)
-- ✅ **Helm 3.13+** installed (required for label support)
+- **Azure Subscription** with Owner or Contributor + User Access Administrator roles.
+- **Red Hat account** for pull secret.
+- **Required Azure Permissions**: Your user account needs the following permissions:
+  - `Microsoft.Authorization/roleAssignments/write` (for creating role assignments)
+  - `Microsoft.RedHatOpenShift/OpenShiftClusters/write` (for creating ARO clusters)
+  - `Microsoft.Network/*` (for managing network resources)
+- **Command-line tools** (install via [Homebrew](https://brew.sh/)):
+    - `az` (Azure CLI - version 2.50+)
+    - `oc` (OpenShift CLI - version 4.14+)
+    - `kubectl` (version 1.27+)
+    - `helm` (version **3.13+** - required for v1.15.0 label support)
+    - `jq`, `yq`, `envsubst`, `bash`
+- **Docker** (optional, for containerized CLI tools)
+- **TIBCO Platform Helm charts repo**: [https://tibcosoftware.github.io/tp-helm-charts](https://tibcosoftware.github.io/tp-helm-charts)
 
-### 2. ARO Cluster Specifications
-- **OpenShift Version:** 4.14 or higher
-- **Worker Node Count:** Minimum 3 worker nodes
-- **Worker Node Size:** Standard_D8s_v3 or higher (8 vCPUs, 32GB RAM per node)
-- **Master Node Size:** Standard_D8s_v3 or higher
-- **Total Resources:** 24+ CPU cores, 96+ GB RAM minimum for workers
-- **Network:** Virtual Network with appropriate subnet sizing
-- **Storage:** Azure Disk (Premium_LRS) + Azure Files
-
-### 3. Tools and Software
-- **Azure CLI:** Version 2.50 or later (`az version`)
-- **OpenShift CLI (oc):** Version 4.14+ (`oc version`)
-- **Helm:** Version 3.13+ (`helm version`)
-- **kubectl:** Version 1.27+ (`kubectl version`)
-- **Git:** For cloning tp-helm-charts repository
-- **Text Editor:** For editing configuration files
-
-### 4. Access Requirements
-- ✅ **TIBCO Container Registry** access (csgprduswrepoedge.jfrog.io)
-- ✅ **Red Hat Pull Secret** for ARO
-- ✅ **Domain Name** for TIBCO Platform (e.g., `aro-tibco.example.com`)
-- ✅ **DNS Management** access in Azure DNS or your DNS provider
-
-### 5. Knowledge Prerequisites
-- Basic understanding of Azure Red Hat OpenShift
-- Familiarity with Helm charts and Kubernetes/OpenShift concepts
-- Understanding of DNS and certificate management
-- Basic Azure networking knowledge
+> [!IMPORTANT]
+> **Helm 3.13+ Requirement**: TIBCO Platform 1.15.0 requires Helm version 3.13 or higher to support label-based deployment tracking. Verify your Helm version:
+> ```bash
+> helm version
+> # Should show version >= v3.13.0
+> ```
 
 ---
 
-## Architecture
+## Clone tp-helm-charts repo
 
-### High-Level Architecture
+To clone the `tp-helm-charts` repository, run:
 
+```bash
+git clone https://github.com/TIBCOSoftware/tp-helm-charts.git
+cd tp-helm-charts
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Azure Red Hat OpenShift                  │
-│                                                             │
-│  ┌──────────────────────┐      ┌──────────────────────┐   │
-│  │  Control Plane       │      │  Data Plane          │   │
-│  │  Namespace           │      │  Namespace           │   │
-│  │                      │      │                      │   │
-│  │  - IDM               │◄─────┤  - BWCE Apps         │   │
-│  │  - Provisioner       │      │  - Flogo Apps        │   │
-│  │  - Web Server        │      │  - Hybrid Conn.      │   │
-│  │  - Developer Hub     │      │  - Observability     │   │
-│  └──────────────────────┘      └──────────────────────┘   │
-│            │                              │                │
-│            ├──────────────────────────────┤                │
-│            │                              │                │
-│  ┌─────────▼──────────────────────────────▼─────────┐     │
-│  │         OpenShift Router (Ingress)               │     │
-│  └──────────────────────────────────────────────────┘     │
-│                         │                                  │
-└─────────────────────────┼──────────────────────────────────┘
-                          │
-                          ▼
-                   Azure DNS Zone
-                   (*.aro-tibco.example.com)
-                          │
-                          ▼
-                  External PostgreSQL 16
+
+This will download the latest charts and scripts required for the setup.
+
+## Add TIBCO Platform Helm Repository
+
+Before deploying any TIBCO Platform components, add the TIBCO Platform Helm chart repository:
+
+```bash
+# Add the TIBCO Platform Helm repository
+export HELM_URL="tibco-platform-public"
+helm repo add ${HELM_URL} https://tibcosoftware.github.io/tp-helm-charts
+
+# Update helm repositories to get the latest chart versions
+helm repo update
+
+# Verify the repository was added successfully
+helm search repo ${HELM_URL}/tibco-cp-base --versions | head -5
+```
+
+> [!NOTE]
+> The `HELM_URL` variable is used throughout this guide for helm chart installations. Ensure it is exported in your shell session before proceeding with deployments.
+
+## Using a Prebuilt Docker Container for CLI Tools
+
+All CLI commands in this guide can be executed inside a prebuilt Docker container that includes the required tools. This approach ensures a consistent environment and avoids local installation issues.
+
+### Build the Docker Image
+
+Navigate to the directory containing your Dockerfile (e.g., `/tp-helm-charts/docs/workshop`) and build the image:
+
+```bash
+docker buildx build --platform="linux/amd64" --progress=plain -t workshop-cli-tools:latest --load .
+```
+
+### Run the Container
+
+Start an interactive shell with the necessary tools:
+
+```bash
+docker run -it --rm workshop-cli-tools:latest /bin/bash
+```
+
+> **Tip:** Mount your working directory with `-v $(pwd):/workspace` if you need access to local files inside the container.
+
+All subsequent commands in this guide can be run from within this container shell.
+
+---
+
+## Step 1: Prepare Azure Environment
+
+### 1.1. Export Required Variables
+
+```bash
+export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+export TP_TENANT_ID=$(az account show --query tenantId -o tsv)
+export TP_AZURE_REGION="westeurope" # or your preferred region
+export TP_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"
+export TP_CLUSTER_NAME="aroCluster"
+export TP_WORKER_COUNT=6
+export TP_VNET_NAME="openshiftvnet"
+export TP_MASTER_SUBNET_NAME="masterOpenshiftSubnet"
+export TP_WORKER_SUBNET_NAME="workerOpenshiftSubnet"
+export TP_VNET_CIDR="10.5.0.0/16"
+export TP_MASTER_SUBNET_CIDR="10.5.0.0/23"
+export TP_WORKER_SUBNET_CIDR="10.5.2.0/23"
+export TP_WORKER_VM_SIZE="Standard_D8s_v5"
+export TP_WORKER_VM_DISK_SIZE_GB="128"
+```
+
+### 1.2. Login and Set Subscription
+
+```bash
+az login
+az account set --subscription ${TP_SUBSCRIPTION_ID}
+```
+
+### 1.3. Register Required Resource Providers
+
+```bash
+az provider register -n Microsoft.RedHatOpenShift --wait
+az provider register -n Microsoft.Compute --wait
+az provider register -n Microsoft.Storage --wait
+az provider register -n Microsoft.Authorization --wait
+```
+
+### 1.4. Download Red Hat Pull Secret
+
+- Download from: https://console.redhat.com/openshift/install/azure/aro-provisioned
+- Save as `pull-secret.txt` and set permissions:
+
+```bash
+chmod +x pull-secret.txt
 ```
 
 ---
 
-## Deployment Steps
+## Step 2: Create Networking Resources
 
-### Overview
+Navigate to your scripts directory and run the pre-cluster script:
 
-This guide follows a simplified deployment approach for TIBCO Platform v1.15.0 on ARO:
+This script prepares the Azure environment (resource group, VNet, subnets) needed before deploying an ARO cluster, ensuring all required network infrastructure is in place.
 
-1. **Azure Environment Setup** - Create ARO cluster and supporting resources
-2. **Storage Configuration** - Configure Azure Disk and Files storage classes
-3. **Security Setup** - Generate session keys, encryption secrets, and certificates
-4. **PostgreSQL Setup** - Deploy PostgreSQL 16 database
-5. **Control Plane Deployment** - Install TIBCO Platform Control Plane 1.15.0
-6. **Data Plane Deployment** - Install Data Plane infrastructure and capabilities
+E.g. It creates openshiftvnet with master and worker subnets.
 
-### Detailed Steps
-
-For detailed step-by-step instructions, please refer to:
-
-#### 📖 Official TIBCO Documentation
-
-- [TIBCO Platform 1.15.0 Installation Guide](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
-- [OpenShift-Specific Configuration](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/openshift-deployment.htm)
-- [Enhanced Security Configuration](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/enhanced-security.htm)
-
-#### 🔧 Key Configuration Changes for v1.15.0
-
-**1. Session Keys Secret (NEW - Mandatory)**
 ```bash
-# Generate session key and IV
-export SESSION_KEY=$(openssl rand -base64 32)
-export SESSION_IV=$(openssl rand -base64 16)
-
-# Create secret in Control Plane namespace
-kubectl create secret generic session-keys \
-  --from-literal=SESSION_KEY="${SESSION_KEY}" \
-  --from-literal=SESSION_IV="${SESSION_IV}" \
-  -n <cp-namespace>
+cd "aro (Azure Red Hat OpenShift)/scripts"
+./pre-aro-cluster-script.sh
 ```
 
-**2. Encryption Secret (NEW - Mandatory)**
-```bash
-# Generate encryption key
-export CPORCH_ENCRYPTION_KEY=$(openssl rand -base64 32)
 
-# Create secret in Control Plane namespace
-kubectl create secret generic cporch-encryption-secret \
-  --from-literal=CPORCH_ENCRYPTION_KEY="${CPORCH_ENCRYPTION_KEY}" \
-  -n <cp-namespace>
+---
+
+## Step 3: Create ARO Cluster
+
+### Troubleshooting Authorization Issues
+
+If you encounter an `AuthorizationFailed` error like:
+```
+The client 'user@domain.com' does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/write'
 ```
 
-**3. Security Context Constraints (OpenShift-Specific)**
+This indicates insufficient permissions. Here are the solutions:
+
+#### Option 1: Request Additional Permissions (Recommended)
+Ask your Azure administrator to grant you one of the following roles:
+- **Owner** role on the subscription or resource group
+- **User Access Administrator** + **Contributor** roles combined
+
+> **Note:** If your organization uses **Privileged Identity Management (PIM)**, you may need to:
+> 1. Activate your Owner role in the Azure Portal under "Privileged Identity Management"
+> 2. Refresh your Azure CLI session: `az login --use-device-code` or `az account clear && az login`
+> 3. Verify your permissions: `az role assignment list --assignee $(az account show --query user.name -o tsv) --scope /subscriptions/${TP_SUBSCRIPTION_ID}`
+> 4. If role assignments show empty, try broader scope checks:
+>    ```bash
+>    # Check at subscription level without specific scope
+>    az role assignment list --assignee $(az account show --query user.name -o tsv) --all
+>    
+>    # Check your current user context
+>    az account show --query '{User:user.name,Subscription:name,SubscriptionId:id}' -o table
+>    
+>    # Test if you can list resource groups (requires Contributor or higher)
+>    az group list --query '[].{Name:name,Location:location}' -o table
+>    ```
+
+#### Option 2: Pre-assign Required Roles
+If you cannot get User Access Administrator permissions, ask your Azure administrator to pre-assign the required roles:
+
 ```bash
-# Apply required SCCs for TIBCO Platform
-oc adm policy add-scc-to-user anyuid -z default -n <cp-namespace>
-oc adm policy add-scc-to-user privileged -z default -n <cp-namespace>
+# Get the ARO resource provider service principal ID
+ARO_RP_SP_ID=$(az ad sp list --display-name "Azure Red Hat OpenShift RP" --query [0].appId -o tsv)
+
+# Assign Network Contributor role to ARO RP on the VNet
+az role assignment create \
+    --assignee ${ARO_RP_SP_ID} \
+    --role "Network Contributor" \
+    --scope "/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${TP_VNET_NAME}"
 ```
 
-**4. Helm Deployment with Labels (v1.15.0 Requirement)**
+#### Option 3: Use Service Principal Authentication
+Create a service principal with sufficient permissions and use it for ARO cluster creation:
+
 ```bash
-# Install with Helm 3.13+ using labels
-helm install tibco-cp-base \
-  --namespace <cp-namespace> \
-  --labels layer=0 \
-  -f values.yaml \
-  tibco-cp/tibco-cp-base
+# Create service principal (requires elevated permissions)
+az ad sp create-for-rbac --name "aro-cluster-sp" --role Owner --scopes "/subscriptions/${TP_SUBSCRIPTION_ID}/resourceGroups/${TP_RESOURCE_GROUP}"
+
+# Login with service principal
+az login --service-principal -u <appId> -p <password> --tenant ${TP_TENANT_ID}
 ```
 
-**5. Certificate Structure**
-- Create separate certificates for `my.<domain>` and `tunnel.<domain>`
-- Use wildcard certificates like `*.aro-tibco.example.com`
-- Store in appropriate secret format for OpenShift
+### Create the ARO Cluster
 
-**6. Network Policies**
-Enhanced namespace labels required:
-```yaml
+Cluster creation takes 30–45 minutes.
+
+> **Note:** To check available OpenShift versions in your region before creation:
+> ```bash
+> az aro get-versions --location ${TP_AZURE_REGION} -o table
+> ```
+
+```bash
+az aro create \
+    --resource-group ${TP_RESOURCE_GROUP} \
+    --name ${TP_CLUSTER_NAME} \
+    --vnet ${TP_VNET_NAME} \
+    --master-subnet ${TP_MASTER_SUBNET_NAME} \
+    --worker-subnet ${TP_WORKER_SUBNET_NAME} \
+    --worker-count ${TP_WORKER_COUNT} \
+    --worker-vm-disk-size-gb ${TP_WORKER_VM_DISK_SIZE_GB} \
+    --worker-vm-size ${TP_WORKER_VM_SIZE} \
+    --version 4.17.27 \
+    --pull-secret @pull-secret.txt
+```
+
+
+---
+
+## Step 4: Permissions and Role Assignments
+
+Below are the key commands used to set permissions and roles for your ARO cluster and TIBCO Platform Data Plane setup, with brief descriptions for each step.
+
+Ref: [Microsoft ARO Doc: How to Create a Storage Class and Set Permissions](https://learn.microsoft.com/en-us/azure/openshift/howto-create-a-storageclass#set-permissions)
+
+### 4.1. Set Resource Group Permissions
+
+The ARO service principal requires `listKeys` permission on the Azure storage account resource group. Assign the Contributor role to the ARO service principal:
+
+```bash
+# Set environment variables (using variables from Step 1)
+export ARO_RESOURCE_GROUP=${TP_RESOURCE_GROUP}
+export CLUSTER=${TP_CLUSTER_NAME}
+export AZURE_FILES_RESOURCE_GROUP=${TP_RESOURCE_GROUP}
+
+# Get the ARO service principal ID
+ARO_SERVICE_PRINCIPAL_ID=$(az aro show -g $ARO_RESOURCE_GROUP -n $CLUSTER --query servicePrincipalProfile.clientId -o tsv)
+
+# Assign Contributor role to the ARO service principal on the storage resource group
+az role assignment create --role Contributor --scope /subscriptions/$TP_SUBSCRIPTION_ID/resourceGroups/$AZURE_FILES_RESOURCE_GROUP --assignee $ARO_SERVICE_PRINCIPAL_ID
+```
+*Assigns necessary permissions for ARO to manage Azure Files storage resources.*
+
+### 4.2. Set ARO Cluster Permissions
+
+The OpenShift persistent volume binder service account requires permission to read secrets. Create and assign a custom cluster role:
+
+```bash
+# Get the ARO API server endpoint
+ARO_API_SERVER=$(az aro list --query "[?contains(name,'$CLUSTER')].[apiserverProfile.url]" -o tsv)
+
+# Login to the OpenShift cluster as kubeadmin
+oc login -u kubeadmin -p $(az aro list-credentials -g $ARO_RESOURCE_GROUP -n $CLUSTER --query=kubeadminPassword -o tsv) $ARO_API_SERVER
+
+# Create a cluster role to allow reading secrets
+oc create clusterrole azure-secret-reader \
+    --verb=create,get \
+    --resource=secrets
+
+# Assign the cluster role to the persistent-volume-binder service account
+oc adm policy add-cluster-role-to-user azure-secret-reader system:serviceaccount:kube-system:persistent-volume-binder
+```
+*Enables OpenShift to bind persistent volumes by granting the required permissions to read secrets.*
+
+---
+
+## Step 5: Connect to the Cluster
+
+### 5.1. Get Credentials
+
+You can also get credentials from the aroCluster in Azure Portal by clicking on "Connect" button. 
+
+```bash
+az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP}
+```
+
+### 5.2. Login with OpenShift CLI
+
+```bash
+apiServer=$(az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query apiserverProfile.url -o tsv)
+oc login ${apiServer} -u <kubeadminUsername> -p <kubeadminPassword>
+
+```
+
+### 5.3. Access OpenShift Console
+
+```bash
+az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query "consoleProfile.url" -o tsv
+```
+
+---
+
+## Step 6: Configure Security Context Constraints
+
+**Why this step is needed:** OpenShift uses Security Context Constraints (SCCs) to control the security context under which pods run. TIBCO Platform components require specific security permissions to function properly, including the ability to bind to network services and access persistent storage. The default OpenShift SCCs are too restrictive for TIBCO workloads.
+
+**What this accomplishes:** Creates a custom SCC (`tp-scc`) that provides the minimum required security permissions for TIBCO Platform Control Plane and Data Plane components while maintaining security best practices.
+
+Create a custom SCC for TIBCO workloads:
+
+```bash
+oc apply -f - <<EOF
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
 metadata:
-  labels:
-    platform.tibco.com/workload-type: "control-plane"
-    platform.tibco.com/capability: "base"
+    name: tp-scc
+priority: 10
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities:
+- NET_BIND_SERVICE
+fsGroup:
+    type: RunAsAny
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+- ALL
+runAsUser:
+    type: RunAsAny
+seLinuxContext:
+    type: MustRunAs
+seccompProfiles:
+- runtime/default
+supplementalGroups:
+    type: RunAsAny
+volumes:
+- configMap
+- csi
+- downwardAPI
+- emptyDir
+- ephemeral
+- persistentVolumeClaim
+- projected
+- secret
+EOF
 ```
 
----
+Verify:
 
-## Troubleshooting
-
-### Common Issues
-
-**1. Session Keys or Encryption Secrets Missing**
 ```bash
-# Error: Session keys secret not found
-# Solution: Must create both secrets before installing CP
-kubectl get secret session-keys -n <cp-namespace>
-kubectl get secret cporch-encryption-secret -n <cp-namespace>
+oc get scc tp-scc
+
+NAME     PRIV    CAPS                   SELINUX     RUNASUSER   FSGROUP    SUPGROUP   PRIORITY   READONLYROOTFS   VOLUMES
+tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   RunAsAny    RunAsAny   RunAsAny   10         false            ["configMap","csi","downwardAPI","emptyDir","ephemeral","persistentVolumeClaim","projected","secret"]
+
 ```
 
-**2. Helm Version Compatibility**
+---
+
+## Step 7: Configure Shared Infrastructure
+
+**Why this step is needed:** Both TIBCO Control Plane and Data Plane require common infrastructure components including ingress controllers, storage classes, and databases. Configuring these shared components once ensures consistency and reduces duplication.
+
+**What this accomplishes:** 
+- Sets up ingress capabilities for both internal and external traffic routing
+- Creates storage classes for persistent data storage requirements
+- Installs PostgreSQL database required by the Control Plane
+- Configures network policies for secure communication between components
+
+This section configures the infrastructure components that will be shared between Control Plane and Data Plane deployments on the same ARO cluster.
+
+### Step 7.1: Export Variables for Both Control Plane and Data Plane
+
+The following variables are required for both Control Plane and Data Plane setup and should be exported in addition to the variables from Step 1. This comprehensive list consolidates all environment variables needed throughout the deployment process.
+
+> [!TIP]
+> **Centralized Environment Variables Script**: For easier management and maintenance, all environment variables have been consolidated into a single script file that you can download and source:
+> 
+> **GitHub Reference**: [aks-aro-openshift-env-variables.sh](https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aks-aro-openshift-env-variables.sh)
+>
+> To use the script:
+> ```bash
+> # Download the script
+> curl -O https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aks-aro-openshift-env-variables.sh
+> 
+> # Make it executable
+> chmod +x aks-aro-openshift-env-variables.sh
+> 
+> # Review and customize the values in the script, then source it
+> source aks-aro-openshift-env-variables.sh
+> ```
+
+Alternatively, you can export the variables manually as shown below:
+
 ```bash
-# Error: Unknown flag --labels
-# Solution: Upgrade to Helm 3.13+
-helm version  # Must be 3.13.0 or higher
+# ========================================
+# AZURE AND CLUSTER INFRASTRUCTURE VARIABLES
+# ========================================
+# Note: These are already defined in Step 1, included here for reference
+# export TP_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+# export TP_TENANT_ID=$(az account show --query tenantId -o tsv)
+# export TP_AZURE_REGION="westeurope"
+# export TP_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"
+# export TP_CLUSTER_NAME="aroCluster"
+# export TP_WORKER_COUNT=6
+# export TP_VNET_NAME="openshiftvnet"
+# export TP_MASTER_SUBNET_NAME="masterOpenshiftSubnet"
+# export TP_WORKER_SUBNET_NAME="workerOpenshiftSubnet"
+# export TP_VNET_CIDR="10.5.0.0/16"
+# export TP_MASTER_SUBNET_CIDR="10.5.0.0/23"
+# export TP_WORKER_SUBNET_CIDR="10.5.2.0/23"
+# export TP_WORKER_VM_SIZE="Standard_D8s_v5"
+# export TP_WORKER_VM_DISK_SIZE_GB="128"
+
+# ========================================
+# NETWORK CONFIGURATION VARIABLES
+# ========================================
+## Network specific variables (get actual values from your ARO cluster)
+export TP_NODE_CIDR="10.5.2.0/23" # Node CIDR: from Worker Node subnet CIDR (TP_WORKER_SUBNET_CIDR)
+export TP_POD_CIDR="10.128.0.0/14" # Pod CIDR: Run the command az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.podCidr -o tsv
+export TP_SERVICE_CIDR="172.30.0.0/16" # Service CIDR: Run the command az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.serviceCidr -o tsv
+
+# Network policy specific variables
+export TP_ENABLE_NETWORK_POLICY="false" # possible values "true", "false"
+
+# ========================================
+# DNS AND DOMAIN CONFIGURATION VARIABLES
+# ========================================
+## Domain specific variables
+export TP_CLUSTER_DOMAIN="nxp.atsnl-emea.azure.dataplanes.pro" # replace it with your DNS Zone name
+export TP_DNS_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"  # replace with name of resource group containing dns record sets
+export TP_TOP_LEVEL_DOMAIN="${TP_CLUSTER_DOMAIN}" # top level domain of TP_DOMAIN
+export TP_SANDBOX="apps" # hostname of TP_DOMAIN
+export TP_DOMAIN="${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}" # domain to be used
+export TP_INGRESS_CLASS="openshift-default" # name of main ingress class used by capabilities
+
+# ========================================
+# STORAGE CONFIGURATION VARIABLES
+# ========================================
+# Storage specific variables
+export TP_DISK_STORAGE_CLASS="azure-disk-sc" # name of azure disk storage class
+export TP_FILE_STORAGE_CLASS="azure-files-sc" # name of azure files storage class
+
+# ========================================
+# OBSERVABILITY CONFIGURATION VARIABLES
+# ========================================
+# LogServer specific variables (optional)
+export TP_LOGSERVER_ENDPOINT=""
+export TP_LOGSERVER_INDEX="" # logserver index to push the logs to
+export TP_LOGSERVER_USERNAME=""
+export TP_LOGSERVER_PASSWORD=""
+
+# ========================================
+# CONTAINER REGISTRY VARIABLES
+# ========================================
+## Container Registry variables (shared by both Control Plane and Data Plane)
+export TP_CONTAINER_REGISTRY_URL="csgprdeuwrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
+export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
+export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
+export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-prod" # replace with your container registry repository
+
+# ========================================
+# HELM CHART CONFIGURATION VARIABLES
+# ========================================
+# Helm chart repository variables
+export TP_CHART_REPO_USER_NAME=
+export TP_CHART_REPO_TOKEN=
+export HELM_URL=tibco-platform-public
+
+# ========================================
+# CONTROL PLANE SPECIFIC VARIABLES
+# ========================================
+## Control Plane Instance specific variables (only needed if deploying Control Plane)
+export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
+# ⚠️ IMPORTANT: CP_INSTANCE_ID must NOT contain hyphens (-) as it is used as database name prefix
+# PostgreSQL database names cannot contain hyphens. Use underscores (_) or alphanumeric only.
+# Valid examples: cp1, nxpcp, nxp_tibco_cp, prod1
+# Invalid examples: nxp-tibco-cp, my-cp, prod-1
+export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used for Control Plane UI
+export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used for hybrid connectivity
+
+# Control Plane chart versions (unified chart since 1.13.0)
+export CP_TIBCO_CP_BASE_VERSION=1.15.0
+
+# Storage configuration for Control Plane
+export CP_STORAGE_SIZE="10Gi" # storage size for Control Plane components
+
+# TLS Secret names for Control Plane
+export CP_MY_TLS_SECRET_NAME="custom-my-tls" # TLS secret for Control Plane UI domain
+export CP_TUNNEL_TLS_SECRET_NAME="custom-tunnel-tls" # TLS secret for hybrid connectivity domain
+
+# Email configuration for certificates
+export EMAIL="cp-test@tibco.com" # email for certificates (required if deploying Control Plane)
+export EMAIL_FOR_CERTBOT="kulbhushan.bhalerao@tibco.com"
+
+# Database configuration variables
+export CP_DB_HOST="postgresql.tibco-ext.svc.cluster.local"
+export CP_DB_NAME="postgres"
+export CP_DB_PASSWORD="postgres"
+export CP_DB_PORT="5432"
+export CP_DB_SECRET_NAME="provider-cp-database-credentials"
+export CP_DB_SSL_MODE="disable"
+export CP_DB_USERNAME="postgres"
+
+# Email server configuration variables
+export CP_EMAIL_SERVER_TYPE="smtp"
+export CP_EMAIL_SMTP_SERVER="development-mailserver.tibco-ext.svc.cluster.local"
+export CP_EMAIL_SMTP_PORT="1025"
+export CP_EMAIL_SMTP_USERNAME=""  # Empty - MailDev doesn't require authentication
+export CP_EMAIL_SMTP_PASSWORD=""  # Empty - MailDev doesn't require authentication
+
+# Admin user configuration variables
+export CP_ADMIN_EMAIL="${EMAIL}"
+export CP_ADMIN_FIRSTNAME="cp-test"
+export CP_ADMIN_LASTNAME="cp-test"
+export CP_ADMIN_CUSTOMER_ID="nxp-customer-id"
+
+# ========================================
+# DATA PLANE SPECIFIC VARIABLES
+# ========================================
+## Data Plane specific variables (only needed if deploying Data Plane)
+export DP_NAMESPACE="dp1" # Replace with your namespace
 ```
 
-**3. OpenShift SCC Issues**
+> [!IMPORTANT]
+> We are assuming customer will be using the Azure DNS Service.
+
+### Step 7.2: Configure Ingress Controller
+
+**Why this step is needed:** TIBCO Control Plane uses wildcard domains for the `my` (Control Plane UI) and `tunnel` (hybrid connectivity) domains. The default OpenShift ingress controller restricts wildcard domains and cross-namespace ingress ownership for security reasons.
+
+**What this accomplishes:** 
+- Enables wildcard domain support required by Control Plane services
+- Allows inter-namespace ingress ownership for Control Plane components
+- Ensures external traffic can reach Control Plane services properly
+
+> [!NOTE]
+> We are using the default Ingress Controller provisioned for ARO cluster. This configuration is shared by both Control Plane and Data Plane.
+
+The default ingress controller needs to be configured to allow wildcard domains and inter-namespace ownership (required for Control Plane `my` and `tunnel` domains):
+
 ```bash
-# Error: cannot set securityContext
-# Solution: Apply required SCCs
-oc describe scc anyuid
-oc describe scc privileged
+oc -n openshift-ingress-operator patch ingresscontroller/default --type='merge' \
+  -p '{"spec":{"routeAdmission":{"wildcardPolicy":"WildcardsAllowed","namespaceOwnership":"InterNamespaceAllowed"}}}'
 ```
 
-**4. Certificate Issues**
-- Ensure certificates cover both `my.<domain>` and `tunnel.<domain>`
-- Verify certificate format is compatible with OpenShift secrets
-- Check certificate expiration dates
+### Step 7.3: Install Storage Classes
 
-### Getting Help
+**Why this step is needed:** TIBCO Platform components require persistent storage for configuration data, application artifacts, and runtime state. Different components have different storage requirements - some need shared file storage while others need high-performance block storage.
 
-- **TIBCO Documentation**: [https://docs.tibco.com/pub/platform-cp/latest/doc/html/](https://docs.tibco.com/pub/platform-cp/latest/doc/html/)
-- **Red Hat ARO Documentation**: [https://docs.openshift.com/container-platform/](https://docs.openshift.com/container-platform/)
-- **tp-helm-charts Repository**: [https://github.com/TIBCOSoftware/tp-helm-charts](https://github.com/TIBCOSoftware/tp-helm-charts)
+**What this accomplishes:**
+- **Azure Files storage class**: Provides shared file storage for Control Plane configuration and Data Plane capabilities that need concurrent read/write access
+- **Azure Disk storage class**: Provides high-performance block storage for databases like PostgreSQL
+- **Azure Files EMS storage class**: Specialized storage for Enterprise Message Service with NFS protocol support
+
+Create storage classes required for both Control Plane and Data Plane deployments:
+
+```bash
+# Azure Files Storage Class (used by Control Plane and Data Plane capabilities)
+oc apply -f - <<EOF
+apiVersion: storage.k8s.io/v1
+allowVolumeExpansion: true
+kind: StorageClass
+metadata:
+  name: ${TP_FILE_STORAGE_CLASS}
+mountOptions:
+- mfsymlinks
+- cache=strict
+- nosharesock
+- noperm
+parameters:
+  allowBlobPublicAccess: "false"
+  networkEndpointType: privateEndpoint
+  skuName: Premium_LRS
+provisioner: file.csi.azure.com
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+EOF
+
+# Azure Disk Storage Class (used by PostgreSQL and other disk-based workloads)
+oc apply -f - <<EOF
+apiVersion: storage.k8s.io/v1
+allowVolumeExpansion: true
+kind: StorageClass
+metadata:
+  name: ${TP_DISK_STORAGE_CLASS}
+parameters:
+  skuName: Premium_LRS # other values: Premium_ZRS, StandardSSD_LRS (default)
+provisioner: disk.csi.azure.com
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+EOF
+
+# Azure Files Storage Class for EMS (Enterprise Message Service) - Data Plane capability
+oc apply -f - <<EOF
+apiVersion: storage.k8s.io/v1
+allowVolumeExpansion: true
+kind: StorageClass
+metadata:
+  name: azure-files-sc-ems
+mountOptions:
+- soft
+- timeo=300
+- actimeo=1
+- retrans=2
+- _netdev
+parameters:
+  allowBlobPublicAccess: "false"
+  networkEndpointType: privateEndpoint
+  protocol: nfs
+  skuName: Premium_LRS
+provisioner: file.csi.azure.com
+reclaimPolicy: Retain
+volumeBindingMode: Immediate
+EOF
+```
+
+> [!TIP]
+> **For comprehensive PostgreSQL database setup and management guidance**, including:
+> - Detailed PostgreSQL installation options (on-premises vs Azure SaaS)
+> - Using TIBCO's official `postgres-helper.bash` script for database schema management
+> - Database credentials and secrets configuration
+> - Troubleshooting common database issues
+> 
+> See the dedicated guide: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide)
+> 
+> **Official TIBCO Documentation**: [PostgreSQL Management Script](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/scripts/database/README.md)
+
+### Step 7.4: Install PostgreSQL
+
+> [!IMPORTANT]
+> **Database Naming Convention Restriction**
+> 
+> The `CP_INSTANCE_ID` is used as a prefix for PostgreSQL database names (e.g., `cp1_tscidmdb`, `cp1_defaultidpdb`). PostgreSQL identifiers **cannot contain hyphens (-)** unless quoted, and TIBCO's database scripts do not quote identifiers.
+> 
+> **Valid CP_INSTANCE_ID examples**: `cp1`, `nxpcp`, `nxp_tibco_cp`, `prod1`  
+> **Invalid examples**: `nxp-tibco-cp` ❌ (contains hyphens), `my-control-plane` ❌
+> 
+> If you use hyphens, database creation will fail with errors like:
+> ```
+> ERROR: Failed to create database 'nxp-tibco-cp_defaultidpdb'
+> ```
+> 
+> **Solution**: Use underscores or remove hyphens: `nxp_tibco_cp` or `nxptibcocp`
+
+**Why this step is needed:** TIBCO Control Plane requires PostgreSQL as its metadata database to store:
+- Platform configuration and metadata
+- User permissions and RBAC settings
+- Application deployment information
+- Audit logs and operational data
+
+**What this accomplishes:**
+- **PostgreSQL cluster**: Provides highly available database service for Control Plane
+- **Persistent storage**: Ensures data persistence across pod restarts using Azure Disk storage
+- **Database configuration**: Sets up required schemas and access permissions
+
+Install PostgreSQL server chart using the `on-premises-third-party` chart. This PostgreSQL instance will be used by the Control Plane:
+
+> [!NOTE]
+> You can optionally use any pre-existing PostgreSQL installation, but please make sure that the Control Plane pods can communicate with that database.
+
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n tibco-ext postgresql tibco-platform-public/on-premises-third-party \
+  --labels layer=2 \
+  --version "^1.0.0" -f - <<EOF
+global:
+  tibco:
+    containerRegistry:
+      url: "${TP_CONTAINER_REGISTRY_URL}"
+      username: "${TP_CONTAINER_REGISTRY_USER}"
+      password: "${TP_CONTAINER_REGISTRY_PASSWORD}"
+      repository: "${TP_CONTAINER_REGISTRY_REPOSITORY}"
+  storageClass: ${TP_DISK_STORAGE_CLASS}
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: postgres
+    username: postgres
+    password: postgres
+    database: "postgres"
+  image:
+    registry: "${TP_CONTAINER_REGISTRY_URL}"
+    repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}/common-postgresql
+    tag: 16.4.0-debian-12-r14
+    pullSecrets:
+    - tibco-container-registry-credentials
+    debug: true
+  primary:
+    # resourcesPreset: "nano" # nano micro small
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+EOF
+```
+
+If you are using network policies, label the `tibco-ext` namespace:
+
+```bash
+oc label namespace tibco-ext networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
+```
+
+> [!IMPORTANT]
+> Please note that the PostgreSQL installed above does not enforce SSL by default. It has to be manually configured.
+
+#### Alternative: Using Azure Database for PostgreSQL (SaaS)
+
+Instead of deploying PostgreSQL on the cluster, you can use **Azure Database for PostgreSQL Flexible Server** as a managed SaaS solution. This provides better scalability, automated backups, and enterprise-grade security.
+
+> [!TIP]
+> For complete Azure PostgreSQL setup including SSL configuration, database schema management using TIBCO's `postgres-helper.bash` script, and advanced troubleshooting, see: [PostgreSQL Database Setup and Management Guide](postgresql-database-setup-guide)
+
+**Prerequisites for Azure PostgreSQL:**
+1. Azure Database for PostgreSQL Flexible Server instance created
+2. Firewall rules configured to allow ARO cluster access
+3. SSL/TLS certificate downloaded for secure connections
+
+**Step 1: Download Baltimore CyberTrust Root Certificate**
+
+Azure PostgreSQL requires SSL connections using the Baltimore CyberTrust Root certificate:
+
+```bash
+# Download the Baltimore CyberTrust Root certificate
+curl -o BaltimoreCyberTrustRoot.crt.pem https://cacerts.digicert.com/BaltimoreCyberTrustRoot.crt.pem
+
+# Verify the certificate was downloaded
+ls -lh BaltimoreCyberTrustRoot.crt.pem
+```
+
+**Step 2: Create Kubernetes Secret for SSL Certificate**
+
+Create a secret containing the SSL certificate that will be used by the Control Plane to connect to Azure PostgreSQL.
+
+> [!IMPORTANT]
+> The secret must use the **exact key name** `db_ssl_root.cert` (with a dot, not underscore). This is required by the TIBCO Platform.
+
+```bash
+# Create the SSL certificate secret with the exact key name required
+kubectl create secret generic db-ssl-root-cert \
+  --from-file=db_ssl_root.cert=BaltimoreCyberTrustRoot.crt.pem \
+  -n ${CP_INSTANCE_ID}-ns
+
+# Verify the secret was created
+kubectl get secret db-ssl-root-cert -n ${CP_INSTANCE_ID}-ns
+
+# Optional: Verify the secret structure (should show "db_ssl_root.cert" as the key)
+kubectl get secret db-ssl-root-cert -n ${CP_INSTANCE_ID}-ns -o yaml
+```
+
+**Example Secret Structure:**
+```yaml
+apiVersion: v1
+data:
+  db_ssl_root.cert: <BASE64_ENCODED_CERTIFICATE>
+kind: Secret
+metadata:
+  name: db-ssl-root-cert
+  namespace: <CP_INSTANCE_ID>-ns
+type: Opaque
+```
+
+**Step 3: Update Environment Variables for Azure PostgreSQL**
+
+Export the following variables with your Azure PostgreSQL connection details:
+
+```bash
+# Azure PostgreSQL connection details
+export CP_DB_HOST="<your-postgres-server>.postgres.database.azure.com"  # e.g., mypostgres.postgres.database.azure.com
+export CP_DB_NAME="postgres"  # or your database name
+export CP_DB_USERNAME="<admin-user>@<server-name>"  # e.g., adminuser@mypostgres
+export CP_DB_PASSWORD="<your-password>"  # Your PostgreSQL password
+export CP_DB_PORT="5432"
+export CP_DB_SECRET_NAME="provider-cp-database-credentials"
+
+# SSL Configuration for Azure PostgreSQL
+export CP_DB_SSL_MODE="require"  # Options: disable, require, verify-ca, verify-full
+export CP_DB_SSL_ROOT_CERT_SECRET_NAME="db-ssl-root-cert"
+export CP_DB_SSL_ROOT_CERT_FILENAME="db_ssl_root.cert"
+```
+
+**SSL Mode Options:**
+- `disable`: No SSL (not recommended for production)
+- `require`: SSL connection required but does not verify the certificate
+- `verify-ca`: SSL connection with certificate verification (recommended)
+- `verify-full`: SSL connection with full certificate and hostname verification (most secure)
+
+**Step 4: Configure Control Plane Values for SSL**
+
+When deploying the Control Plane with Azure PostgreSQL, ensure your values file includes the SSL certificate configuration:
+
+```yaml
+global:
+  external:
+    db_ssl_mode: ${CP_DB_SSL_MODE}  # require, verify-ca, or verify-full
+  tibco:
+    db_ssl_root_cert_secretname: ${CP_DB_SSL_ROOT_CERT_SECRET_NAME}
+    db_ssl_root_cert_filename: ${CP_DB_SSL_ROOT_CERT_FILENAME}
+```
+
+**Step 5: Test PostgreSQL Connection**
+
+Verify connectivity to Azure PostgreSQL before deploying the Control Plane:
+
+```bash
+# Install PostgreSQL client tools (if not already installed)
+apk add postgresql-client  # For Alpine
+# OR
+apt-get install postgresql-client  # For Debian/Ubuntu
+
+# Test connection to Azure PostgreSQL
+PGSSLMODE=${CP_DB_SSL_MODE} psql "host=${CP_DB_HOST} port=${CP_DB_PORT} dbname=${CP_DB_NAME} user=${CP_DB_USERNAME} sslrootcert=BaltimoreCyberTrustRoot.crt.pem"
+
+# If connection is successful, you'll see the PostgreSQL prompt
+# Type \q to exit
+```
+
+**Reference Documentation:**
+- [Configure SSL on PostgreSQL Client](https://learn.microsoft.com/en-us/azure/postgresql/security/security-tls#configure-ssl-on-the-client)
+- [Azure Database for PostgreSQL SSL Connectivity](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-connect-tls-ssl)
+
+> [!NOTE]
+> When using Azure PostgreSQL, skip the on-premises PostgreSQL installation (Step 7.4) and proceed directly to Step 7.5.
+
+### Step 7.5: Install and Access Email Server (MailDev)
+
+**Why this step is needed:** TIBCO Control Plane requires an SMTP server to send email notifications for:
+- User account activation and password reset emails
+- Platform notifications and alerts
+- Subscription and billing notifications
+- System administration alerts
+
+**What this accomplishes:**
+- **Development SMTP server**: Provides a lightweight email server for testing and development
+- **Email capture**: Captures all outbound emails from Control Plane for review and testing
+- **Web interface**: Provides a web-based interface to view captured emails
+- **No authentication**: Configured to work without SMTP authentication for simplicity
+
+#### Install MailDev Email Server
+
+Deploy the MailDev email server that will capture and display emails sent by the Control Plane:
+
+```bash
+# Apply the MailDev deployment
+oc apply -f /path/to/your/maildev-deploy.yaml
+
+# Wait for the deployment to be ready
+oc wait --for=condition=ready pod -l app=development-mailserver -n tibco-ext --timeout=300s
+
+# Verify the deployment
+oc get pods -n tibco-ext -l app=development-mailserver
+```
+
+#### Access the MailDev Web Interface
+
+**Web Interface URL**: `https://mail.nxp.atsnl-emea.azure.dataplanes.pro`
+
+**What you can do with the email interface:**
+- **View all emails**: See all emails sent by the Control Plane in a convenient web interface
+- **User activation**: Click on activation links in emails to activate new users
+- **Password resets**: Access password reset emails for testing
+- **Platform notifications**: Review system alerts and notifications
+- **Email debugging**: Inspect email content, headers, and formatting
+
+#### Using the Email Interface for Control Plane Setup
+
+1. **Initial Setup**: After deploying the Control Plane, check the email interface for the platform administrator activation email
+2. **User Management**: When creating new users, their activation emails will appear in the interface
+3. **Testing**: Use the email interface to test email functionality without needing external email services
+
+#### Email Server Configuration Details
+
+The MailDev server is configured with the following settings:
+- **SMTP Server**: `development-mailserver.tibco-ext.svc.cluster.local`
+- **SMTP Port**: `1025`
+- **Web Interface Port**: `1080` (mapped to route)
+- **Authentication**: Disabled (no username/password required)
+- **SSL/TLS**: Not required for development use
+
+> [!NOTE]
+> This email server is intended for development and testing purposes only. For production deployments, configure a proper SMTP server with authentication and encryption.
 
 ---
 
-## Next Steps
+## Step 8: TIBCO Platform Control Plane Setup
 
-### After Successful Deployment
+**Why this step is needed:** The TIBCO Control Plane provides centralized management capabilities for the entire TIBCO Platform ecosystem:
+- **Platform governance**: Centralized management of capabilities, permissions, and policies
+- **Application lifecycle**: Manages deployment, scaling, and monitoring of applications
+- **User management**: Handles authentication, authorization, and role-based access control
+- **Resource orchestration**: Coordinates resource allocation and service dependencies
 
-1. **Access Control Plane UI**
-   - Navigate to `https://admin.my.<your-domain>`
-   - Login with admin credentials
-   - Complete initial configuration
+**What this accomplishes:**
+- **Control Plane deployment**: Installs the core platform management services
+- **Configuration integration**: Connects to PostgreSQL database and certificate infrastructure
+- **Service mesh setup**: Establishes secure communication between platform components
+- **Management interfaces**: Provides APIs and UI for platform administration
 
-2. **Deploy Capabilities**
-   - Install BWCE capability for BusinessWorks applications
-   - Install Flogo capability for integration flows
-   - Install Messaging capability (EMS) if needed
+> [!IMPORTANT]
+> This section covers Control Plane specific configuration. If you are only deploying a Data Plane to connect to a SaaS Control Plane, skip to [Step 9: TIBCO Platform Data Plane Setup](#step-9-tibco-platform-data-plane-setup).
 
-3. **Configure Observability** (Optional but Recommended)
-   - Follow [Observability Setup Guide](../how-to-dp-openshift-observability)
-   - Install Prometheus for metrics
-   - Install Elastic ECK for logs
+### Step 8.1: Create Control Plane Namespace and Service Account
 
-4. **Deploy Sample Applications**
-   - Test BWCE application deployment
-   - Test Flogo application deployment
-   - Verify hybrid connectivity
+**Why this step is needed:** The Control Plane requires its own dedicated namespace for:
+- **Resource isolation**: Separates Control Plane components from other workloads
+- **Security boundaries**: Enables specific RBAC policies and security contexts
+- **Resource management**: Allows targeted resource quotas and limits
+- **Label-based operations**: Facilitates platform-specific operations and monitoring
 
-5. **Production Readiness**
-   - Review [Prerequisites Checklist](../prerequisites-checklist-for-customer)
-   - Configure backup and disaster recovery
-   - Set up monitoring and alerting
-   - Review security hardening guidelines
+**What this accomplishes:**
+- **Dedicated namespace**: Creates isolated environment for Control Plane components
+- **Service account**: Provides identity for Control Plane services to access Kubernetes APIs
+- **Platform labels**: Enables platform-specific resource discovery and management
+
+Create a namespace where the TIBCO Control Plane charts will be deployed. This provides isolation for the Control Plane components and makes it easier to manage permissions and resources:
+
+```bash
+oc apply -f <(envsubst '${CP_INSTANCE_ID}' <<'EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+ name: ${CP_INSTANCE_ID}-ns
+ labels:
+    platform.tibco.com/controlplane-instance-id: ${CP_INSTANCE_ID}
+EOF
+)
+```
+
+Create a dedicated service account for TIBCO Control Plane deployment. This service account will be used by Control Plane components to interact with the Kubernetes API:
+
+```bash
+oc create serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns
+```
+
+Grant necessary Security Context Constraints (SCC) permissions to the service accounts. This is required in OpenShift environments to allow the Control Plane pods to run with the appropriate security context:
+
+```bash
+oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:default
+```
+
+These permissions ensure that Control Plane components can access required resources and run with the security context defined in the custom `tp-scc` we created earlier, which provides the minimum required privileges while maintaining security best practices.
+
+> [!IMPORTANT]
+> **Troubleshooting SCC Permissions**: If you encounter pod creation errors with messages like "forbidden: unable to validate against any security context constraint", refer to the [SCC Permissions Troubleshooting Guide](aro-kul/troubleshooting-scc-permissions) for detailed resolution steps. This is a common issue that occurs when SCC permissions are not properly granted before deployment.
+
+### Step 8.2: Configure Certificates and DNS Records
+
+**Why this step is needed:** The Control Plane requires secure HTTPS communication for:
+- **Web interface security**: Protects the Control Plane UI and APIs with SSL/TLS encryption
+- **Service-to-service communication**: Ensures secure inter-service communication within the platform
+- **Hybrid connectivity**: Secures tunnel connections between Control Plane and Data Planes
+- **Client trust**: Provides browser-trusted certificates for user access
+
+**What this accomplishes:**
+- **SSL/TLS certificates**: Creates valid certificates for Control Plane domains using Let's Encrypt
+- **DNS configuration**: Sets up DNS records for Control Plane services and hybrid connectivity
+- **Wildcard domains**: Enables flexible subdomain usage for different Control Plane services
+- **Certificate automation**: Uses certbot for automated certificate generation and renewal
+
+> [!IMPORTANT]
+> For the scope of this document, we use Azure DNS Service for DNS hosting, resolution.
+
+We recommend that you use different DNS records and certificates for `my` (Control Plane application) and `tunnel` (hybrid connectivity) domains. You can use wildcard domain names for these Control Plane application and hybrid connectivity domains. 
+
+**Why wildcard certificates are recommended:**
+- **Admin interface**: The Control Plane admin interface will be accessible at `admin.${CP_MY_DNS_DOMAIN}`
+- **Subscription domains**: Different subscriptions can have their own subdomains like `<subscription-name>.${CP_MY_DNS_DOMAIN}`
+- **Tunnel services**: Various tunnel endpoints will use subdomains under `${CP_TUNNEL_DNS_DOMAIN}`
+- **Simplified management**: One wildcard certificate covers all current and future subdomains
+
+The certificates for both the domains are created [using certbot commands](https://eff-certbot.readthedocs.io/en/stable/using.html#certbot-commands)
+
+We recommend that you use different `CP_INSTANCE_ID` to distinguish multiple Control Plane installations within a cluster.
+
+`TP_DOMAIN` is exported as part of [Export required variables](#export-required-variables)
+
+Please export below variables and values related to domains (as descirbed above) if not done:
+```bash
+CP_INSTANCE_ID,CP_MY_DNS_DOMAIN,CP_TUNNEL_DNS_DOMAIN,EMAIL
+```
+
+If you are using network policies, to ensure that network traffic is allowed from the default ingress namespace to the Control Plane namespace pods, label the namespace running following command
+
+```bash
+oc label namespace openshift-ingress networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
+```
+
+> [!NOTE]
+> **Windows Users**: If you are running this setup on a Windows environment, refer to the comprehensive [Windows Certificate and DNS Setup Guide](aro-kul/windows-certificate-dns-setup-guide) which covers certificate generation using Docker Desktop, WSL2, and PowerShell native methods.
+
+#### Install Certbot (Alpine Docker)
+
+If you're running in Alpine Docker and get `bash: certbot: command not found`, here are your options:
+
+**Option 1: Install certbot in Alpine (Recommended)**
+```bash
+# Update packages and install certbot
+apk update && apk add certbot
+
+# Verify installation
+certbot --version
+```
+
+**Option 2: Use pip to install certbot**
+```bash
+# Install Python and pip first (if not available)
+apk add python3 py3-pip
+
+# Install certbot via pip
+pip3 install certbot
+
+# Verify installation
+certbot --version
+```
+
+**Option 3: Use acme.sh as alternative (Lightweight)**
+```bash
+# Install acme.sh (lighter alternative to certbot)
+apk add curl socat
+curl https://get.acme.sh | sh
+
+# Use acme.sh instead of certbot for certificate generation
+~/.acme.sh/acme.sh --issue --dns -d "*.${CP_MY_DNS_DOMAIN}" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+```
+
+**Option 4: Run certbot in separate Docker container**
+```bash
+# Create alias to run certbot in Docker
+alias certbot='docker run --rm -it -v $PWD/certs:/etc/letsencrypt -v $PWD/work:/var/lib/letsencrypt certbot/certbot'
+
+# Test the alias
+certbot --version
+```
+
+#### Certificate and Secret for MY Domain
+
+```bash
+export SCRATCH_DIR="/tmp/${CP_INSTANCE_ID}-my"
+
+certbot certonly --manual \
+  --preferred-challenges=dns \
+  --email ${EMAIL_FOR_CERTBOT} \
+  --server https://acme-v02.api.letsencrypt.org/directory \
+  --agree-tos \
+  -d "*.${CP_MY_DNS_DOMAIN}" \
+  --config-dir "${SCRATCH_DIR}/config" \
+  --work-dir "${SCRATCH_DIR}/work" \
+  --logs-dir "${SCRATCH_DIR}/logs"
+```
+
+> **Note:** Do not interrupt the command. You will need to create multiple TXT record sets under the `TP_CLUSTER_DOMAIN` DNS zone:
+> 1. `_acme-challenge.${CP_INSTANCE_ID}-my.apps` for the wildcard domain
+> Create each TXT record with the values mentioned in the certbot output, then press Enter to complete the command.
+
+```bash
+oc create secret tls custom-my-tls \
+  -n ${CP_INSTANCE_ID}-ns \
+  --cert=$SCRATCH_DIR/config/live/${CP_MY_DNS_DOMAIN}/fullchain.pem \
+  --key=$SCRATCH_DIR/config/live/${CP_MY_DNS_DOMAIN}/privkey.pem
+```
+
+#### Certificate and Secret for TUNNEL Domain
+
+```bash
+export SCRATCH_DIR="/tmp/${CP_INSTANCE_ID}-tunnel"
+
+certbot certonly --manual \
+  --preferred-challenges=dns \
+  --email ${EMAIL_FOR_CERTBOT} \
+  --server https://acme-v02.api.letsencrypt.org/directory \
+  --agree-tos \
+  -d "*.${CP_TUNNEL_DNS_DOMAIN}" \
+  --config-dir "${SCRATCH_DIR}/config" \
+  --work-dir "${SCRATCH_DIR}/work" \
+  --logs-dir "${SCRATCH_DIR}/logs"
+```
+
+> **Note:** Do not interrupt the command. Create the `_acme-challenge.${CP_INSTANCE_ID}-tunnel.apps` TXT record set under the `TP_CLUSTER_DOMAIN` DNS zone with the value mentioned in the output of above command. After the record set is created, press Enter to complete the command.
+
+```bash
+oc create secret tls custom-tunnel-tls \
+  -n ${CP_INSTANCE_ID}-ns \
+  --cert=$SCRATCH_DIR/config/live/${CP_TUNNEL_DNS_DOMAIN}/fullchain.pem \
+  --key=$SCRATCH_DIR/config/live/${CP_TUNNEL_DNS_DOMAIN}/privkey.pem
+```
+
+#### Create Record Sets for MY and TUNNEL Domains
+
+**Why wildcard DNS entries are used:** The TIBCO Control Plane uses dynamic subdomains for different services and subscription domains. Using wildcard DNS entries (`*.${CP_MY_DNS_DOMAIN}` and `*.${CP_TUNNEL_DNS_DOMAIN}`) allows the platform to automatically handle:
+- **Control Plane admin interface**: `admin.${CP_MY_DNS_DOMAIN}`
+- **Subscription domains**: `<subscription-name>.${CP_MY_DNS_DOMAIN}`
+- **Tunnel connectivity**: Various tunnel endpoints under `*.${CP_TUNNEL_DNS_DOMAIN}`
+
+Add the wildcard record sets under the DNS Zones so that all Control Plane services are accessible:
+
+```bash
+INGRESS_IP="$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
+
+## add wildcard record set for MY Domain (covers admin.${CP_MY_DNS_DOMAIN} and subscription domains)
+az network dns record-set a add-record \
+ -g ${TP_DNS_RESOURCE_GROUP} \
+ -z ${TP_CLUSTER_DOMAIN} \
+ -n "*.${CP_INSTANCE_ID}-my.apps" \
+ -a ${INGRESS_IP}
+
+## add wildcard record set for TUNNEL Domain
+az network dns record-set a add-record \
+ -g ${TP_DNS_RESOURCE_GROUP} \
+ -z ${TP_CLUSTER_DOMAIN} \
+ -n "*.${CP_INSTANCE_ID}-tunnel.apps" \
+ -a ${INGRESS_IP}
+
+
+## Verify record sets
+
+**Note:** If `dig` command is not found in Alpine Docker, install it:
+```bash
+# Install dig in Alpine
+apk add bind-tools
+
+# Verify installation
+dig --version
+```
+
+**Alternative verification methods if dig is not available:**
+```bash
+# Option 1: Use nslookup (usually pre-installed)
+nslookup admin.${CP_MY_DNS_DOMAIN}
+nslookup test.${CP_TUNNEL_DNS_DOMAIN}
+
+# Option 2: Use curl to test domain resolution
+curl -I --connect-timeout 5 https://admin.${CP_MY_DNS_DOMAIN} 2>/dev/null | head -1
+curl -I --connect-timeout 5 https://test.${CP_TUNNEL_DNS_DOMAIN} 2>/dev/null | head -1
+
+# Option 3: Use getent (if available)
+getent hosts admin.${CP_MY_DNS_DOMAIN}
+getent hosts test.${CP_TUNNEL_DNS_DOMAIN}
+```
+
+**Using dig (after installation):**
+```bash
+dig +short admin.${CP_MY_DNS_DOMAIN}
+dig +short test.${CP_TUNNEL_DNS_DOMAIN}
+```
+
+
+### Step 8.3: Generate Session Keys Secret
+
+> [!IMPORTANT]
+> **MANDATORY for v1.15.0**: The `session-keys` secret is now **required** for all Control Plane deployments. This was optional in v1.14.0 but is now mandatory.
+
+**Why this step is needed:** Session keys provide cryptographic security for the Control Plane:
+- **Session management**: Encrypts user sessions and maintains session state securely
+- **Cross-service authentication**: Enables secure communication between Control Plane microservices
+- **API security**: Protects API tokens and inter-service authentication
+- **Compliance**: Ensures data protection standards for user authentication
+
+**What this accomplishes:**
+- **Cryptographic keys**: Generates random, secure keys for session encryption
+- **Kubernetes secret**: Stores keys securely in the cluster for platform services to access
+- **Service security**: Enables encrypted communication between platform components
+
+This secret is a required prerequisite for the tibco-cp-base chart:
+
+```bash
+# Generate session keys and export as environment variables
+export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+export DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
+
+# Create the Kubernetes secret required by router pods
+kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
+  --from-literal=TSC_SESSION_KEY=${TSC_SESSION_KEY} \
+  --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
+```
+
+### Step 8.3.1: Generate CP Orchestration Encryption Secret
+
+> [!IMPORTANT]
+> **MANDATORY for v1.15.0**: The `cporch-encryption-secret` is now **required** for all Control Plane deployments. This was optional in v1.14.0 but is now mandatory.
+
+**Why this step is needed:** The CP orchestration encryption secret secures Control Plane orchestration data and sensitive configuration.
+
+> [!IMPORTANT]
+> The secret key must be named **exactly** `CP_ENCRYPTION_SECRET` (not `CP_ENCRYPTION_SECRET_KEY`). This is required by the TIBCO Platform.
+
+```bash
+# Generate CP encryption secret
+kubectl create secret generic cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns \
+  --from-literal=CP_ENCRYPTION_SECRET=$(openssl rand -base64 32)
+
+# Verify the secret was created
+kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns
+
+# Optional: Verify the secret structure (should show "CP_ENCRYPTION_SECRET" as the key)
+kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns -o yaml
+```
+
+### Step 8.4: Install TIBCO Control Plane Base Chart
+
+**Important Note about Chart Evolution:**
+> [!IMPORTANT]
+> Starting from version 1.13.0, the separate `platform-bootstrap` and `platform-base` charts have been merged into a single unified chart called `tibco-cp-base`. This simplifies the installation process and eliminates the need for managing two separate releases. All Control Plane components including infrastructure, routing, hybrid connectivity, and core services are now deployed through this single chart.
+
+**Before installation, ensure the following prerequisites are met:**
+> [!NOTE]
+> Before executing the chart installation, ensure workloads in the cluster can access external resources like Database and Email Server. Also ensure you have:
+> 1. Created the `session-keys` secret (Step 8.3)
+> 2. Created the `cporch-encryption-secret` secret (Step 8.3.1)
+> 3. Configured database credentials
+> 4. Exported all required variables from Step 7.1
+
+Create the database credentials secret required for the Control Plane:
+
+```bash
+# Create database credentials secret
+kubectl create secret generic ${CP_DB_SECRET_NAME} \
+    --from-literal=db_username=${CP_DB_USERNAME} \
+    --from-literal=db_password=${CP_DB_PASSWORD} \
+    -n ${CP_INSTANCE_ID}-ns
+```
+
+The following values configure the unified Control Plane deployment:
+
+> [!IMPORTANT]
+> These values are for example only. Adjust based on your requirements.
+
+> [!NOTE]
+> All required environment variables are already defined in [Step 7.1: Export Variables](#step-71-export-variables-for-both-control-plane-and-data-plane). Ensure those variables are exported before running the helm commands below.
+
+**Install the unified tibco-cp-base chart (version 1.15.0):**
+
+For a comprehensive deployment that combines all settings from the legacy `platform-bootstrap` and `platform-base` charts, use the merged values file:
+
+```bash
+# Download the merged values file from GitHub
+curl -o tibco-cp-base-values-merged.yaml https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-merged.yaml
+
+# Install using the merged values file
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-merged.yaml
+```
+
+> [!TIP]
+> **About the Merged Values File**: The `tibco-cp-base-values-merged.yaml` file combines:
+> - All bootstrap components (hybrid-proxy, router-operator, resource-set-operator)
+> - All base components (tp-cp-core, tp-cp-integration, tp-cp-hawk, etc.)
+> - Proper resource requests and replica counts from legacy charts
+> - Complete configuration with inline documentation
+>
+> **GitHub Reference**: [tibco-cp-base-values-merged.yaml](https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aro-kul/tibco-cp-base-values-merged.yaml)
+>
+> You can download it using:
+> ```bash
+> curl -O https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-merged.yaml
+> ```
+
+**Alternative: Inline values (complete configuration)**
+
+If you prefer to use inline values instead of a separate values file, you can use the following command:
+
+> [!IMPORTANT]
+> **Critical Database Configuration**: The inline values below include **all required configuration sections** including:
+> - **Database connection details** (`db_host`, `db_name`, `db_port`, `db_secret_name`, `db_ssl_mode`)
+> - **Email server configuration** (for user activation and notifications)
+> - **Admin user configuration** (for initial platform administrator)
+> - **Encryption secret configuration** (for platform security)
+> 
+> If any of these sections are missing (especially the database configuration), the Control Plane deployment will fail with errors like "missing DBHost key in ConfigMap provider-cp-database-config".
+
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" -f - <<EOF
+hybrid-proxy:
+  enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: ${TP_INGRESS_CLASS}
+    tls:
+      - secretName: ${CP_TUNNEL_TLS_SECRET_NAME}
+        hosts:
+          - '*.${CP_TUNNEL_DNS_DOMAIN}'
+    hosts:
+      - host: '*.${CP_TUNNEL_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 105
+router-operator:
+  enabled: true
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
+  ingress:
+    enabled: true
+    ingressClassName: ${TP_INGRESS_CLASS}
+    tls:
+      - secretName: ${CP_MY_TLS_SECRET_NAME}
+        hosts:
+          - '*.${CP_MY_DNS_DOMAIN}'
+    hosts:
+      - host: '*.${CP_MY_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+resource-set-operator:
+  enabled: true
+# uncomment to enable logging
+# otel-collector:
+#   enabled: true
+global:
+  tibco:
+    createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
+    containerRegistry:
+      url: ${TP_CONTAINER_REGISTRY_URL}
+      username: ${TP_CONTAINER_REGISTRY_USER}
+      password: ${TP_CONTAINER_REGISTRY_PASSWORD}
+      repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}
+    controlPlaneInstanceId: ${CP_INSTANCE_ID}
+    serviceAccount: ${CP_INSTANCE_ID}-sa
+  external:
+    clusterInfo:
+      nodeCIDR: ${TP_NODE_CIDR}
+      podCIDR: ${TP_POD_CIDR}
+      serviceCIDR: ${TP_SERVICE_CIDR}
+    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
+    dnsDomain: ${CP_MY_DNS_DOMAIN}
+    storage:
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: ${TP_FILE_STORAGE_CLASS}
+    # Database configuration
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_username: ${CP_DB_USERNAME}
+    db_password: ${CP_DB_PASSWORD}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+    # Uncomment for SSL/TLS database connections (Azure PostgreSQL)
+    # db_ssl_root_cert_secret_name: ${CP_DB_SSL_ROOT_CERT_SECRET_NAME}
+    # db_ssl_root_cert_filename: ${CP_DB_SSL_ROOT_CERT_FILENAME}
+    # Email server configuration
+    emailServerType: ${CP_EMAIL_SERVER_TYPE}
+    emailServer:
+      smtp:
+        server: ${CP_EMAIL_SMTP_SERVER}
+        port: ${CP_EMAIL_SMTP_PORT}
+        username: ${CP_EMAIL_SMTP_USERNAME}
+        password: ${CP_EMAIL_SMTP_PASSWORD}
+    # Admin user configuration
+    admin:
+      email: ${CP_ADMIN_EMAIL}
+      firstname: ${CP_ADMIN_FIRSTNAME}
+      lastname: ${CP_ADMIN_LASTNAME}
+      customerID: ${CP_ADMIN_CUSTOMER_ID}
+    # Encryption secret configuration
+    cpEncryptionSecretName: cporch-encryption-secret
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
+    # uncomment following section if logging is enabled
+    # logserver:
+    #   endpoint: ${TP_LOGSERVER_ENDPOINT}
+    #   index: ${TP_LOGSERVER_INDEX}
+    #   username: ${TP_LOGSERVER_USERNAME}
+    #   password: ${TP_LOGSERVER_PASSWORD}
+EOF
+```
+
+> [!TIP]
+> **Verify Database Configuration After Deployment**: After the chart is installed, verify that the database configuration was correctly applied:
+> ```bash
+> # Check if the ConfigMap contains the DBHost key
+> kubectl get configmap provider-cp-database-config -n ${CP_INSTANCE_ID}-ns -o yaml | grep -i "host"
+> 
+> # Expected output should show:
+> #   DBHost: postgresql.tibco-ext.svc.cluster.local  (or your DB host)
+> ```
+> 
+> If the DBHost is missing from the ConfigMap, it indicates the database configuration was not included in the Helm values, and you'll need to redeploy with the corrected configuration.
+
+> [!NOTE]
+> The installation may take 15-30 minutes to complete. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
+### Step 8.5: Verify Helm Chart Deployment
+
+> [!NOTE]
+> Since version 1.13.0, there is only one unified chart (`tibco-cp-base`) to manage. This eliminates the need to track multiple chart releases.
+
+To check the actual values being used by the Control Plane chart after deployment, you can export its configuration:
+
+**TIBCO Control Plane Base Chart:**
+```bash
+helm get values tibco-cp-base -n ${CP_INSTANCE_ID}-ns -o yaml > tibco-cp-base-values.yaml
+```
+
+This command exports all the applied configuration values, which can be useful for:
+
+- Verifying that all your custom values were properly applied
+- Debugging issues related to chart configuration 
+- Creating templates for future deployments
+- Understanding the effective configuration after default values are merged with your overrides
+- Preparing for future upgrades by having a reference of the current configuration
+
+You can also view the values directly in the terminal without saving to a file:
+
+```bash
+helm get values tibco-cp-base -n ${CP_INSTANCE_ID}-ns -o yaml
+```
+
+**Verify the deployment status:**
+```bash
+# Check Helm release status
+helm list -n ${CP_INSTANCE_ID}-ns
+
+# Check pod status
+kubectl get pods -n ${CP_INSTANCE_ID}-ns
+
+# Check for any errors
+kubectl get events -n ${CP_INSTANCE_ID}-ns --sort-by='.lastTimestamp'
+```
+
+### Step 8.5.1: Install Capability Charts (Required for BWCE, Flogo, and EMS)
+
+> [!IMPORTANT]
+> **Critical Step for TIBCO Platform 1.12.0+**: Starting from version 1.12.0, the TIBCO Platform architecture has changed. The capability charts are **decoupled** from the base infrastructure chart (`tibco-cp-base`). You **must** install them separately in your Control Plane namespace to enable provisioning functionality for BWCE, Flogo, and EMS (Messaging).
+> 
+> **What this resolves**: If you attempt to provision BWCE, Flogo, or EMS capabilities without installing these charts, you will encounter the error: **"required charts for this capability not deployed"**.
+
+**Why this step is needed:** The capability charts provide:
+- **BWCE & BW5**: Runtime recipes, templates, and configurations for BusinessWorks Container Edition
+- **Flogo**: Runtime recipes, templates, and configurations for Flogo applications  
+- **EMS (Messaging)**: Runtime recipes, templates, and configurations for Enterprise Messaging Service
+
+**Installation Instructions:**
+
+You can reuse the same `tibco-cp-base-values-merged.yaml` file you used for the tibco-cp-base installation, or extract the values from your deployed release.
+
+**Option 1: Using existing values file**
+```bash
+# Install BWCE & BW5 capability chart
+helm upgrade --install --wait --timeout 15m \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-bw ${HELM_URL}/tibco-cp-bw \
+  --labels layer=1 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-merged.yaml
+
+# Install Flogo capability chart
+helm upgrade --install --wait --timeout 15m \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-flogo ${HELM_URL}/tibco-cp-flogo \
+  --labels layer=1 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-merged.yaml
+
+# Install EMS (Messaging) capability chart
+helm upgrade --install --wait --timeout 15m \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-messaging ${HELM_URL}/tibco-cp-messaging \
+  --labels layer=1 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-merged.yaml
+```
+
+**Option 2: Extract values from deployed tibco-cp-base release**
+```bash
+# Extract values from the deployed tibco-cp-base release
+helm get values tibco-cp-base -n ${CP_INSTANCE_ID}-ns -o yaml > capability-charts-values.yaml
+
+# Install capability charts using extracted values
+helm upgrade --install --wait --timeout 15m \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-bw ${HELM_URL}/tibco-cp-bw \
+  --labels layer=1 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f capability-charts-values.yaml
+
+helm upgrade --install --wait --timeout 15m \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-flogo ${HELM_URL}/tibco-cp-flogo \
+  --labels layer=1 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f capability-charts-values.yaml
+
+helm upgrade --install --wait --timeout 15m \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-messaging ${HELM_URL}/tibco-cp-messaging \
+  --labels layer=1 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f capability-charts-values.yaml
+```
+
+**Verify capability chart installations:**
+```bash
+# Check all Helm releases in the Control Plane namespace
+helm list -n ${CP_INSTANCE_ID}-ns
+
+# You should see at least these releases:
+# - tibco-cp-base
+# - tibco-cp-bw
+# - tibco-cp-flogo
+# - tibco-cp-messaging
+
+# Verify pods are running
+kubectl get pods -n ${CP_INSTANCE_ID}-ns | grep -E 'bw|flogo|messaging'
+```
+
+> [!NOTE]
+> **Chart Version Compatibility**: The capability charts should use the **same version** as the `tibco-cp-base` chart. In this guide, we're using `${CP_TIBCO_CP_BASE_VERSION}` which is set to `1.15.0`.
+>
+> **Installation Time**: Each capability chart typically takes 5-10 minutes to install. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
+
+> [!TIP]
+> **Selective Installation**: If you only need specific capabilities, you can install only the required capability charts. For example, if you only plan to use BWCE, you can install only `tibco-cp-bw` and skip the others.
+
+**Common Issues and Troubleshooting:**
+
+If capability chart installation fails:
+
+```bash
+# Check the status of the Helm release
+helm status tibco-cp-bw -n ${CP_INSTANCE_ID}-ns
+
+# View detailed logs of failed pods
+kubectl describe pod <pod-name> -n ${CP_INSTANCE_ID}-ns
+
+# Check for resource constraints
+kubectl top nodes
+kubectl top pods -n ${CP_INSTANCE_ID}-ns
+
+# Uninstall and retry if needed
+helm uninstall tibco-cp-bw -n ${CP_INSTANCE_ID}-ns
+# Then re-run the install command
+```
+
+**Reference Documentation:**
+- [TIBCO Control Plane User Guide - Capability Charts](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm)
+- [tibco-cp-bw Chart README](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/charts/tibco-cp-bw)
+- [tibco-cp-flogo Chart README](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/charts/tibco-cp-flogo)
 
 ---
 
-## Additional Resources
+### Step 8.6: Access Control Plane and Retrieve Initial Admin Password
 
-### Documentation
-- [TIBCO Platform Release Notes v1.15.0](../../releases/v1.15.0)
-- [ARO Firewall Requirements](../../docs/firewall-requirements-aro)
-- [Prerequisites Checklist](../prerequisites-checklist-for-customer)
+After the tibco-cp-base installation completes successfully, you need to retrieve the initial admin password and access the Control Plane.
 
-### Related Guides
-- [Data Plane Only Setup (v1.15)](./how-to-dp-openshift-aro-aks-setup-guide)
-- [Observability Setup](../how-to-dp-openshift-observability)
-- [DNS Management](../how-to-add-dns-records-aro-azure)
-- [BW6 Driver Supplements](../how-to-upload-bw6-driver-supplements)
+> [!IMPORTANT]
+> **Admin User Initial Password**: During tibco-cp-base installation, the admin user specified does not receive an activation email whether email service is configured or not. Instead, the platform automatically generates a temporary password and stores it in a Kubernetes job called `tp-control-plane-ops-create-admin-user` that runs for only **1 hour**.
+> 
+> **Key Points**:
+> - The admin user does not get an activation email (unlike regular users)
+> - The initial password is only available in the job logs for 1 hour
+> - The job is automatically deleted after 1 hour for security reasons
+> - The user must reset the password on first login (mandatory)
+> - First-time login must use "Default IdP" option
+> 
+> **How to retrieve the initial password**:
+> 1. **During installation**: Run `kubectl get jobs -n ${CP_INSTANCE_ID}-ns | grep tp-control-plane-ops-create-admin-user`
+> 2. **Get logs**: `kubectl logs -n ${CP_INSTANCE_ID}-ns jobs/<job-name>`
+> 3. **Find initialPassword**: Search for `initialPassword` value in the logs
+> 4. **Decode if needed**: `echo '"<initialPassword>"' | jq -r .`
+> 
+> **Reference**: [TIBCO Platform Administration - Signing to Platform Console](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Administration/signing-to-platform-console.htm)
+
+#### 8.6.1: Retrieve Initial Admin Password
+
+The tibco-cp-base chart creates a temporary job that generates the initial admin password. This job is only available for **1 hour** after installation and is then automatically deleted.
+
+> [!IMPORTANT]
+> **Critical Timing**: The `tp-control-plane-ops-create-admin-user` job is deleted after one hour of deployment. You must retrieve the initial password before this time expires.
+
+**Step 1: Get the create admin job details**
+```bash
+kubectl get jobs -n ${CP_INSTANCE_ID}-ns | grep tp-control-plane-ops-create-admin-user
+```
+
+**Step 2: Get the logs of the create admin job**
+```bash
+# Replace <job-name> with the actual job name from step 1
+kubectl logs -n ${CP_INSTANCE_ID}-ns jobs/<job-name>
+
+# Alternative: Direct command using grep
+kubectl logs -n ${CP_INSTANCE_ID}-ns $(kubectl get jobs -n ${CP_INSTANCE_ID}-ns | grep tp-control-plane-ops-create-admin-user | awk '{print $1}')
+```
+
+**Step 3: Extract the password from logs**
+In the logs, search for the value of `initialPassword`. 
+
+**Step 4: Decode the password (if needed)**
+```bash
+# Use the initialPassword value from the logs
+echo '"<initialPassword>"' | jq -r .
+```
+
+**Expected output will contain**:
+- Admin email: `${CP_ADMIN_EMAIL}` (e.g., cp-test@tibco.com)
+- Initial password: `<generated-password>`
+
+#### 8.6.2: Access Control Plane UI
+
+Once you have the initial password, access the Control Plane:
+
+**Control Plane URL**: `https://admin.${CP_MY_DNS_DOMAIN}`
+
+Example: `https://admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
+
+#### 8.6.3: First Login Steps
+
+1. **Navigate to Control Plane URL**: Open the Control Plane URL in your browser
+2. **Select Identity Provider**: For first-time access, click on **"Using Default IdP"** option
+3. **Login with admin credentials**:
+   - **Email**: `${CP_ADMIN_EMAIL}` (e.g., cp-test@tibco.com)
+   - **Password**: Use the password retrieved from the job logs (and decoded if necessary)
+4. **Mandatory password reset**: The system will force you to reset the password on first login - this is required for security
+5. **Set new password**: Choose a strong password and confirm it
+6. **Complete setup**: After password reset, you'll have full access to the Control Plane console
+
+> [!NOTE]
+> **Admin User Behavior**: The admin user specified during Control Plane installation does not receive an activation email, regardless of whether email service is configured. The password must be retrieved from the job logs as described above.
+
+#### 8.6.4: Troubleshooting Access Issues
+
+**If you cannot retrieve the password (job expired)**:
+```bash
+# Check if the create admin job still exists
+kubectl get jobs -n ${CP_INSTANCE_ID}-ns | grep tp-control-plane-ops-create-admin-user
+
+# If job is deleted, check for any remaining pods
+kubectl get pods -n ${CP_INSTANCE_ID}-ns | grep create-admin
+
+# List all jobs to see what's available
+kubectl get jobs -n ${CP_INSTANCE_ID}-ns
+```
+
+**If password reset is needed**:
+- Use the "Forgot Password" link on the login page
+- Check MailDev email interface for reset emails at `https://mail.nxp.atsnl-emea.azure.dataplanes.pro`
+- Or contact your platform administrator
+
+> [!IMPORTANT]  
+> **First Login Requirements**: 
+> - The user must reset the password on the first time login to TIBCO Platform Console
+> - For first-time access, you must sign in "Using Default IdP" option
+> - After first login, you can use either the default IdP or any configured IdP
+
+> [!IMPORTANT]
+> **Security Best Practice**: Always change the initial generated password on first login and store it securely. The temporary job containing the initial password is automatically deleted after 1 hour for security reasons.
+
+### Control Plane Information Summary
+
+| Name                 | Sample value                                                                     | Notes                                                                     |
+|:---------------------|:---------------------------------------------------------------------------------|:--------------------------------------------------------------------------|
+| Node CIDR             | 10.5.2.0/23                                                                    | from Worker Node subnet (TP_WORKER_SUBNET_CIDR)                                      |
+| Service CIDR             | 172.30.0.0/16                                                                    | Run: `az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.serviceCidr -o tsv`                                        |
+| Pod CIDR             | 10.128.0.0/14                                                                    | Run: `az aro show -g ${TP_RESOURCE_GROUP} -n ${TP_CLUSTER_NAME} --query networkProfile.podCidr -o tsv`                                        |
+| Ingress class name   | openshift-default                                                                            | used for TIBCO Control Plane `my` and `tunnel` ingresses                                               |
+| File storage class    |   azure-files-sc                                                                    | used for TIBCO Control Plane                                                                   |
+| Disk storage class    |   azure-disk-sc                                                                    | used for PostgreSQL                                                                   |
+| PostgreSQL |  postgresql.tibco-ext.svc.cluster.local:5432   | used for TIBCO Control Plane |
+| PostgreSQL database@username:password |  postgres@postgres:postgres   | used for TIBCO Control Plane |
+
+
+### Next Steps for Control Plane
+
+After completing the tibco-cp-base installation:
+
+1. **Retrieve initial admin password**: Follow [Step 8.6.1](#861-retrieve-initial-admin-password) to get the temporary password from the job logs
+2. **Access Control Plane UI**: Use the URL `https://admin.${CP_MY_DNS_DOMAIN}` with the admin credentials
+3. **First login requirements**: Use "Default IdP" option and complete mandatory password reset
+4. **Platform administration**: After successful login, you can:
+   - **Provision subscriptions**: Set up subscriptions for different teams or environments
+   - **Add admin users**: Create additional administrative users for platform management
+   - **Register Data Planes**: Connect Data Plane clusters for application deployment
+   - **Manage capabilities**: Provision and configure TIBCO capabilities (BWCE, Flogo, etc.)
+
+**What to do next**:
+- **Subscription management**: Start provisioning subscriptions for your organization
+- **User management**: Add more admin users as needed
+- **Data Plane setup**: Proceed to [Step 9: TIBCO Platform Data Plane Setup](#step-9-tibco-platform-data-plane-setup) if deploying on the same cluster
+
+For detailed platform administration and usage, refer to [the TIBCO Platform documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/deploying-control-plane-in-kubernetes.htm).
 
 ---
 
-**Document Version:** 1.0 for TIBCO Platform CP 1.15.0  
-**Last Updated:** March 10, 2026  
-**Platform:** Azure Red Hat OpenShift (ARO)
+## Step 9: TIBCO Platform Data Plane Setup
+
+**Why this step is needed:** The TIBCO Data Plane provides the runtime environment for executing applications and services:
+- **Application execution**: Hosts and runs TIBCO applications (BusinessWorks, Flogo, etc.)
+- **Capability provisioning**: Provides runtime capabilities like messaging, data processing, and integration
+- **Resource management**: Manages compute, memory, and storage resources for applications
+- **Connectivity**: Establishes secure connections to Control Plane for management and monitoring
+
+**What this accomplishes:**
+- **Data Plane deployment**: Installs the runtime platform for application execution
+- **Observability setup**: Configures monitoring, logging, and metrics collection
+- **Networking configuration**: Sets up ingress and network policies for application access
+- **Capability registration**: Connects Data Plane capabilities to Control Plane for management
+
+This section covers Data Plane specific configuration. The Data Plane can connect to either:
+- The Control Plane deployed in [Step 8](#step-8-tibco-platform-control-plane-setup) (on the same cluster)
+- An external SaaS Control Plane
+
+
+### Step 9.1: Configure Observability
+
+**Why this step is needed:** Observability is critical for Data Plane operations to:
+- **Monitor application health**: Track performance metrics and application status
+- **Enable troubleshooting**: Collect logs and traces for debugging issues
+- **Ensure security**: Monitor access patterns and security events
+- **Capacity planning**: Track resource usage for scaling decisions
+
+**What this accomplishes:**
+- **Network policy setup**: Enables ingress traffic flow to Data Plane services
+- **Observability framework**: Prepares the foundation for monitoring and logging
+- **Security boundaries**: Establishes proper network isolation while allowing necessary communication
+
+> [!NOTE]
+> Ingress Controller and Storage Classes were already configured in [Step 7: Configure Shared Infrastructure](#step-7-configure-shared-infrastructure).
+
+If you are using network policies, ensure that network traffic is allowed from the default ingress namespace to the Data Plane namespace pods:
+
+```bash
+oc label namespace openshift-ingress networking.platform.tibco.com/non-dp-ns=enable --overwrite=true
+```
+
+#### DNS Configuration
+For the Data Plane, we use the default DNS provisioned for ARO cluster. The base DNS can be found using:
+
+```bash
+oc get ingresscontroller -n openshift-ingress-operator default -o json | jq -r '.status.domain'
+```
+It should be something like "apps.<random_alphanumeric_string>.${TP_AZURE_REGION}.aroapp.io"
+#### Grant Privileged SCC to Service Accounts
+
+To ensure Data Plane workloads have the necessary permissions, grant the `privileged` Security Context Constraint (SCC) to the default and `dp1-sa` service accounts in the `dp1` namespace:
+
+```bash
+oc adm policy add-scc-to-user privileged -z default -n dp1
+oc adm policy add-scc-to-user privileged -z dp1-sa -n dp1
+```
+
+*This step allows pods running under these service accounts to use the `privileged` SCC, which may be required for some TIBCO Platform components.*
+
+#### Observability Configuration
+
+**Note 1:** This is optional because if you already have your observability stack we can configure to use yours. For logs and traces DP needs Elastic. For metrics DP needs prometheus.
+
+**Note 2:** You can also configure observability after creating/registering the Data Plane.
+
+**Elastic Stack**
+
+Install ECK via OperatorHub:  
+[Elastic ECK on OpenShift](https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/deploy-eck-on-openshift)
+
+Follow Elastic configuration guide for creating all the indexes needed for the TIBCO Platform
+[Prepare logs and traces server](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/preparing-logs-and-traces-servers.htm?TocPath=Observability%2520in%2520TIBCO%2520Control%2520Plane%257CConfiguring%2520Observability%2520Resource%257C_____1)
+
+**Prometheus**
+
+**Note:** There is already a prometheus provisioned in the ARO cluster. For DP we will provision our own prometheus in the namespace mentioned below. 
+
+Prometheus is pre-installed. To scrape metrics from Data Plane, create a ServiceMonitor:
+
+```
+# Using DP_NAMESPACE variable from Step 7.1
+kubectl apply -f - <<EOF
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+    name: otel-collector-monitor
+    namespace: ${DP_NAMESPACE}
+spec:
+    endpoints:
+    - interval: 30s
+      path: /metrics
+      port: prometheus
+      scheme: http
+    jobLabel: otel-collector
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: otel-userapp-metrics
+EOF
+```
+
+To access inbuilt ARO Prometheus externally, use a service account token:
+
+```markdown
+To access Prometheus externally, you can create a dedicated service account with the necessary permissions. The following example uses a service account named `thanos-client`, which is a common convention when integrating with Thanos or other external monitoring tools, but you can use any name you prefer:
+
+```bash
+oc create sa thanos-client -n openshift-monitoring 
+oc adm policy add-cluster-role-to-user cluster-monitoring-view -z thanos-client -n openshift-monitoring
+TOKEN=$(oc create token thanos-client -n openshift-monitoring)
+```
+
+- `thanos-client` is simply a service account name; it does not require Thanos to be installed. This account is granted the `cluster-monitoring-view` role, allowing it to access Prometheus metrics.
+- The generated token (`$TOKEN`) can be used to authenticate with Prometheus endpoints for external scraping or dashboard access.
+
+
+### Step 9.2: Deploy TIBCO Platform Data Plane
+
+**For SaaS Control Plane:**
+Login to your SaaS CP and Register a new Data plane. 
+
+**Note:** If you do not have an access to SaaS CP assigned to your customer work with TIBCO ATS Team.
+Usually there is an invitation email sent to the manager or account lead. 
+
+**For On-Premises Control Plane:**
+If you deployed a Control Plane using [Step 7](#step-7-tibco-platform-control-plane-setup), access your Control Plane UI at `https://<subdomain>.${CP_MY_DNS_DOMAIN}` and register a new Data Plane.
+
+Follow the wizard which will generate following helm commands with a unique DP ID. 
+
+Dataplane name: aroCluster or aroDataplane or aroStaging
+Dataplane k8s namespace: dp1
+
+#### 9.2.1. Add Helm Repo
+
+```bash
+helm repo add tibco-platform-public https://tibcosoftware.github.io/tp-helm-charts
+helm repo update tibco-platform-public
+```
+
+#### 9.2.2. Create Namespace
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: dp1
+    labels:
+        platform.tibco.com/dataplane-id: <your-dataplane-id>
+EOF
+```
+
+#### 9.2.3. Configure Namespace
+
+```bash
+helm upgrade --install -n dp1 dp-configure-namespace tibco-platform-public/dp-configure-namespace \
+    --version 1.7.5 \
+    --set global.tibco.dataPlaneId=<your-dataplane-id> \
+    --set global.tibco.subscriptionId=<your-subscription-id> \
+    --set global.tibco.primaryNamespaceName=dp1 \
+    --set global.tibco.serviceAccount=sa \
+    --set global.tibco.containerRegistry.url=<your-registry-url> \
+    --set global.tibco.containerRegistry.username=<your-registry-username> \
+    --set global.tibco.containerRegistry.password=<your-registry-password> \
+    --set global.tibco.containerRegistry.repository=tibco-platform-docker-prod \
+    --set global.tibco.enableClusterScopedPerm=true \
+    --set networkPolicy.createDeprecatedPolicies=false
+```
+
+#### 9.2.4. Deploy Core Infrastructure
+
+```bash
+helm upgrade --install dp-core-infrastructure -n dp1 tibco-platform-public/dp-core-infrastructure \
+    --version 1.7.2 \
+    --set global.tibco.dataPlaneId=<your-dataplane-id> \
+    --set global.tibco.subscriptionId=<your-subscription-id> \
+    --set tp-tibtunnel.configure.accessKey=<your-access-key> \
+    --set tp-tibtunnel.connect.url=<your-tibtunnel-url> \
+    --set global.tibco.serviceAccount=sa \
+    --set global.tibco.containerRegistry.url=<your-registry-url> \
+    --set global.tibco.containerRegistry.repository=tibco-platform-docker-prod \
+    --set global.proxy.noProxy='' \
+    --set global.logging.fluentbit.enabled=true
+```
+
+---
+
+## Step 10: Provision TIBCO BWCE and Flogo Capabilities from the GUI
+
+Once the Data Plane is registered and core infrastructure is deployed, you can provision additional capabilities such as TIBCO BusinessWorks Container Edition (BWCE) and TIBCO Flogo directly from the TIBCO Control Plane GUI.
+
+### Steps:
+
+1. **Login to TIBCO Control Plane:**
+    - **For SaaS:** Navigate to your TIBCO Control Plane SaaS URL and sign in.
+    - **For On-Premises:** Navigate to your Control Plane URL (`https://<subdomain>.${CP_MY_DNS_DOMAIN}`) and sign in.
+
+> **Note:** If this is your first time accessing the Control Plane, check the MailDev email interface at `https://mail.nxp.atsnl-emea.azure.dataplanes.pro` for the administrator activation email. Click the activation link in the email to set up your admin account before proceeding.
+
+2. **Select Your Data Plane:**
+    - Go to the "Data Planes" section and select the Data Plane you registered and deployed.
+
+3. **Add Capabilities:**
+    - Click on "Provision a Capability".
+    - Choose **TIBCO BusinessWorks Container Edition (BWCE)** or **TIBCO Flogo** from the list and press Start button
+    - Configure storage class azure-files-sc for Flogo and/or BWCE
+    - For ingress: use the base URL and prefix it with `flogo.` or `bwce.`. You can find the base URL using [Get OpenShift Ingress Domain](#get-openshift-ingress-domain).
+    - Follow the wizard to configure other required parameters
+    - Once finished you will see BWCE and/or Flogo Capability provisioned
+
+4. **Monitor Deployment:**
+    - The Control Plane will show the capability provisioning/deployment status.
+    - You can monitor progress and logs from the GUI or by checking pods in the corresponding namespace:
+
+    ```bash
+    oc -n dp1 get pods
+    ```
+5. **Deploy apps**
+    - Now you can deploy the apps. Follow the documentation of BWCE or Flogo in case you are not aware of how to build your first project and deploy it to TIBCO Platform
+
+> **Note:** The Control Plane GUI automates the Helm chart installation and configuration for these capabilities. No manual CLI steps are required for this process.
+
+### Step 10.1: BWCE Ingress Configuration Troubleshooting
+
+**Important Certificate Issue Fix for BWCE Capability**
+
+When adding a BWCE capability to the Data Plane, you may encounter certificate-related issues that cause the API Documentation URL to return unauthorized errors or not work properly. This is typically due to FQDN and certificate mismatch.
+
+#### The Problem
+If you configure BWCE ingress with a custom FQDN like:
+```
+bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro
+```
+
+The API Documentation and other BWCE services may fail with unauthorized errors because the certificate's Subject Alternative Name (SAN) doesn't match your custom domain.
+
+#### The Root Cause
+When you inspect the certificate for the custom FQDN, you'll find that the certificate SAN shows the ARO cluster's native domain:
+```
+*.apps.sicly758.westeurope.aroapp.io
+```
+
+This mismatch between your custom domain and the certificate SAN causes SSL/TLS validation failures.
+
+#### The Solution
+**Use the ARO cluster's native domain for BWCE ingress configuration:**
+
+```
+bwce.apps.sicly758.westeurope.aroapp.io
+```
+
+Where `apps.sicly758.westeurope.aroapp.io` is the DNS domain owned by the ARO cluster.
+
+#### How to Implement the Fix
+
+1. **Get your ARO cluster's ingress domain:**
+   ```bash
+   oc get ingresscontroller -n openshift-ingress-operator default -o json | jq -r '.status.domain'
+   ```
+   This will return something like: `apps.sicly758.westeurope.aroapp.io`
+
+2. **Configure BWCE capability with the correct FQDN:**
+   - When provisioning BWCE capability through the Control Plane GUI
+   - For the ingress configuration, use: `bwce.apps.<your-cluster-specific>.westeurope.aroapp.io`
+   - Replace `<your-cluster-specific>` with the actual value from step 1
+
+3. **Verify the configuration:**
+   - After provisioning, the BWCE API Documentation URL should work correctly
+   - SSL/TLS certificate validation will pass
+   - All BWCE endpoints will be accessible without certificate errors
+
+#### Additional Notes
+- This same principle applies to any custom capabilities requiring ingress access on ARO
+- The ARO cluster automatically manages certificates for its native domain (`*.apps.<cluster-id>.<region>.aroapp.io`)
+- Using custom domains requires additional certificate management which may not be automatically handled
+- For production environments, you may want to configure proper custom certificates if custom domains are required
+
+#### Alternative Solutions for Custom Domains
+If you must use custom domains like `bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro`:
+
+**Complete Custom Domain Setup Process:**
+
+1. **Create a custom SSL/TLS certificate** for your custom domain:
+   ```bash
+   # Example using Let's Encrypt with certbot for custom domain
+   certbot certonly --manual \
+     --preferred-challenges=dns \
+     --email ${EMAIL_FOR_CERTBOT} \
+     --server https://acme-v02.api.letsencrypt.org/directory \
+     --agree-tos \
+     -d "bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro" \
+     --config-dir "${SCRATCH_DIR}/config" \
+     --work-dir "${SCRATCH_DIR}/work" \
+     --logs-dir "${SCRATCH_DIR}/logs"
+   ```
+
+2. **Create a Kubernetes TLS secret** with the custom certificate:
+   ```bash
+   oc create secret tls bwce-custom-tls \
+     -n ${DP_NAMESPACE} \
+     --cert=$SCRATCH_DIR/config/live/bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro/fullchain.pem \
+     --key=$SCRATCH_DIR/config/live/bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro/privkey.pem
+   ```
+
+3. **Add custom DNS entry** pointing to the ARO cluster ingress IP:
+   ```bash
+   # Get the ARO cluster ingress IP
+   INGRESS_IP="$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
+   
+   # Add DNS A record for custom BWCE domain
+   az network dns record-set a add-record \
+     -g ${TP_DNS_RESOURCE_GROUP} \
+     -z ${TP_CLUSTER_DOMAIN} \
+     -n "bwce.apps" \
+     -a ${INGRESS_IP}
+   ```
+
+4. **Configure the OpenShift Route or Ingress** to use the custom certificate:
+   ```bash
+   # Example route configuration with custom TLS
+   oc apply -f - <<EOF
+   apiVersion: route.openshift.io/v1
+   kind: Route
+   metadata:
+     name: bwce-custom-route
+     namespace: ${DP_NAMESPACE}
+   spec:
+     host: bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro
+     to:
+       kind: Service
+       name: bwce-service  # Replace with actual BWCE service name
+     tls:
+       termination: edge
+       certificate: |
+         # Content from fullchain.pem
+       key: |
+         # Content from privkey.pem
+   EOF
+   ```
+
+5. **Update BWCE capability configuration** to use the custom domain and certificate in the Control Plane GUI
+
+**Important Notes for Custom Domain Setup:**
+- **DNS propagation**: Allow time for DNS changes to propagate globally
+- **Certificate validation**: Ensure the certificate matches exactly the domain you're using
+- **Certificate renewal**: Set up automated renewal for Let's Encrypt certificates
+- **Route priority**: Custom routes may conflict with default ingress configurations
+
+However, the simplest and most reliable approach for ARO deployments is to use the cluster's native domain as described above, as it eliminates certificate management complexity and potential DNS issues.
+
+---
+
+## Step 11: Clean Up
+
+### Control Plane Clean Up
+
+If you deployed a Control Plane, refer to [the steps to delete TIBCO Control Plane](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#Installation/uninstalling-tibco-control-plane.htm).
+
+### Data Plane Clean Up
+
+- Delete Data Plane from TIBCO Control Plane UI (whether SaaS or on-premises).
+- Run cleanup script:
+
+```bash
+cd ../scripts
+./clean-up.sh
+```
+
+> [!IMPORTANT]
+> If you have used a common cluster for both TIBCO Control Plane and Data Plane, please check the script and add modifications so that common resources are not deleted.
+
+---
+
+## References
+
+- [Azure ARO Documentation](https://learn.microsoft.com/en-us/azure/openshift/)
+- [TIBCO Platform Helm Charts](https://tibcosoftware.github.io/tp-helm-charts)
+- [Elastic ECK on OpenShift](https://www.elastic.co/docs/deploy-manage/deploy/cloud-on-k8s/deploy-eck-on-openshift)
+- [OpenShift Monitoring](https://docs.redhat.com/en/documentation/openshift_container_platform/4.17/html/monitoring/accessing-metrics)
+
+---
+
+> **Note:** Adjust all placeholder values (e.g., `<your-dataplane-id>`, `<your-registry-url>`) as per your environment and TIBCO Control Plane configuration.
+
+---
+
+## Troubleshooting and Cluster Information Commands
+
+This section provides useful commands for troubleshooting, monitoring, and inspecting your Azure Red Hat OpenShift (ARO) cluster and deployed workloads.
+
+### Common ARO Cluster Creation Issues
+
+#### Authorization Failed Errors
+If you encounter permission errors during ARO cluster creation, refer to the troubleshooting section in [Step 3: Create ARO Cluster](#step-3-create-aro-cluster).
+
+#### Network CIDR Conflicts
+If you get errors about overlapping address spaces:
+```bash
+# Check existing VNets in the region
+az network vnet list --resource-group ${TP_RESOURCE_GROUP} --query '[].{Name:name,AddressSpace:addressSpace}' -o table
+
+# Update your CIDR ranges to avoid conflicts (these should match Step 1 variables)
+# export TP_VNET_CIDR="10.5.0.0/16"  # Use non-overlapping range
+# export TP_MASTER_SUBNET_CIDR="10.5.0.0/23"
+# export TP_WORKER_SUBNET_CIDR="10.5.2.0/23"
+```
+
+#### Pull Secret Issues
+If ARO creation fails due to pull secret problems:
+```bash
+# Verify pull secret format
+cat pull-secret.txt | jq .
+
+# Re-download from Red Hat Customer Portal if needed
+# https://console.redhat.com/openshift/install/azure/aro-provisioned
+```
+
+### Common Control Plane Deployment Issues
+
+#### Missing DBHost in ConfigMap
+
+**Symptom:** During or after Control Plane installation, you encounter an error:
+```
+Error: missing DBHost key in ConfigMap {namespace}/provider-cp-database-config
+```
+
+**Root Cause:** The database configuration was not included in the Helm values during installation. Environment variables alone do not automatically flow into Helm charts unless explicitly referenced in the values.
+
+**Solution:**
+
+1. **Verify your environment variables are set:**
+```bash
+# Check if DB environment variables are exported
+echo "DB Host: ${CP_DB_HOST}"
+echo "DB Name: ${CP_DB_NAME}"
+echo "DB Port: ${CP_DB_PORT}"
+echo "DB Secret: ${CP_DB_SECRET_NAME}"
+echo "DB SSL Mode: ${CP_DB_SSL_MODE}"
+```
+
+2. **Ensure the Helm values include database configuration:**
+
+The Helm install/upgrade command **must** include this section under `global.external`:
+```yaml
+global:
+  external:
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+```
+
+3. **Verify after deployment:**
+```bash
+# Check if the ConfigMap contains the DBHost key
+kubectl get configmap provider-cp-database-config -n ${CP_INSTANCE_ID}-ns -o yaml | grep -i "host"
+
+# Expected output:
+#   DBHost: postgresql.tibco-ext.svc.cluster.local  (or your DB host)
+```
+
+4. **Fix by redeploying with corrected values:**
+
+**Option A:** Use the complete inline approach (see [Step 8.4](#step-84-install-tibco-control-plane-base-chart)) which now includes all required database configuration.
+
+**Option B:** Use the pre-validated values file:
+```bash
+curl -o tibco-cp-base-values-corrected.yaml \
+  https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-corrected.yaml
+
+helm upgrade --install --wait --timeout 1h \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-values-corrected.yaml
+```
+
+**Related:** See [Step 8.4: Install TIBCO Control Plane Base Chart](#step-84-install-tibco-control-plane-base-chart) for the complete and corrected installation command.
+
+### Verify ARO Cluster Status
+
+```bash
+# Check ARO cluster provisioning state
+az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --query '{Name:name,State:provisioningState,Version:clusterProfile.version}' -o table
+
+# Get cluster details
+az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP}
+```
+
+### List All ARO Clusters in a Subscription
+
+```bash
+az aro list -o table
+```
+*Displays all Azure Red Hat OpenShift clusters in your current subscription.*
+
+### Show Details for a Specific ARO Cluster
+
+```bash
+az aro show --resource-group ${TP_RESOURCE_GROUP} --name ${TP_CLUSTER_NAME}
+```
+*Shows detailed information about a specific ARO cluster.*
+
+### Get ARO Cluster Credentials
+
+```bash
+az aro list-credentials --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP}
+```
+*Retrieves the kubeadmin credentials for your ARO cluster.*
+
+### View and Verify Environment Variables
+
+```bash
+env | grep TP
+```
+*Shows all environment variables related to your deployment.*
+
+### Get OpenShift Ingress Domain
+
+```bash
+oc get ingresscontroller -n openshift-ingress-operator default -o json | jq -r '.status.domain'
+```
+*Displays the default ingress domain for your OpenShift cluster.*
+### Check Cluster Resources and Status
+
+```bash
+oc get ns
+oc get pods -A
+oc get deploy -A
+oc get crds -A
+oc get sc
+oc get ingress -A
+oc get storageaccounts
+```
+*Lists namespaces, pods, deployments, custom resources, storage classes, ingresses, and storage accounts.*
+
+### Inspect Security Context Constraints (SCC)
+
+```bash
+oc get securitycontextconstraints.security.openshift.io
+oc get scc tp-scc -o wide
+```
+*Lists all SCCs and details for the custom `tp-scc`.*
+
+### Monitor Events and Pod Status
+
+```bash
+oc get events -w
+kubectl get events --sort-by='.metadata.creationTimestamp' -n dp1 --watch
+oc -n dp1 get pods -w
+```
+*Watches for real-time events and pod status changes in the `dp1` namespace.*
+
+### View Logs for Troubleshooting
+
+```bash
+oc -n dp1 logs <pod-name>
+oc -n dp1 logs -c <container-name> <pod-name>
+```
+*Fetches logs from a pod or a specific container within a pod.*
+
+---
+
+These commands help you quickly inspect, troubleshoot, and monitor your ARO cluster and TIBCO Platform Data Plane deployment.
+
+---
+
+## Summary Checklist: Objects and Resources Created
+
+This comprehensive checklist includes all the objects, resources, and configurations created throughout this deployment guide. Use this to verify your deployment or troubleshoot missing components.
+
+### 🎯 **Azure Infrastructure Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Resource Group | `${TP_RESOURCE_GROUP}` | 2 | Container for all Azure resources | ☐ |
+| Virtual Network | `${TP_VNET_NAME}` (openshiftvnet) | 2 | Network isolation for ARO cluster | ☐ |
+| Master Subnet | `${TP_MASTER_SUBNET_NAME}` (masterOpenshiftSubnet) | 2 | Master nodes network segment | ☐ |
+| Worker Subnet | `${TP_WORKER_SUBNET_NAME}` (workerOpenshiftSubnet) | 2 | Worker nodes network segment | ☐ |
+| ARO Cluster | `${TP_CLUSTER_NAME}` (aroCluster) | 3 | OpenShift cluster on Azure | ☐ |
+| Service Principal | ARO Cluster SP | 3 | Identity for ARO cluster operations | ☐ |
+| Role Assignment | Contributor on storage RG | 4.1 | ARO access to storage resources | ☐ |
+
+### 🔐 **Security and Access Control Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Security Context Constraint | `tp-scc` | 6 | Custom SCC for TIBCO workloads | ☐ |
+| Cluster Role | `azure-secret-reader` | 4.2 | Read secrets for persistent volumes | ☐ |
+| Cluster Role Binding | `azure-secret-reader` to `persistent-volume-binder` | 4.2 | PV binder permissions | ☐ |
+| Service Account | `${CP_INSTANCE_ID}-sa` | 8.1 | Control Plane service identity | ☐ |
+| SCC Assignment | `tp-scc` to `${CP_INSTANCE_ID}-sa` | 8.1 | Control Plane SCC permissions | ☐ |
+| SCC Assignment | `tp-scc` to `default` SA | 8.1 | Default SA SCC permissions | ☐ |
+
+### 🌐 **Network and Ingress Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Ingress Controller Patch | Wildcard and inter-namespace support | 7.2 | Enable Control Plane domains | ☐ |
+| DNS A Record | `*.${CP_INSTANCE_ID}-my.apps.${TP_CLUSTER_DOMAIN}` | 8.2 | Control Plane UI domain | ☐ |
+| DNS A Record | `*.${CP_INSTANCE_ID}-tunnel.apps.${TP_CLUSTER_DOMAIN}` | 8.2 | Hybrid connectivity domain | ☐ |
+| Network Label | `openshift-ingress` namespace | 8.2 | Network policy for CP ingress | ☐ |
+| Network Label | `tibco-ext` namespace | 7.4 | Network policy for PostgreSQL | ☐ |
+| Namespace | `external-dns-system` | 7.6 | External DNS namespace | ☐ |
+| Secret | `azure-config-file` | 7.6 | Azure credentials for External DNS | ☐ |
+| Helm Release | `external-dns` | 7.6 | Automatic DNS record management | ☐ |
+
+### 💾 **Storage Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Storage Class | `${TP_FILE_STORAGE_CLASS}` (azure-files-sc) | 7.3 | Azure Files for shared storage | ☐ |
+| Storage Class | `${TP_DISK_STORAGE_CLASS}` (azure-disk-sc) | 7.3 | Azure Disk for high-performance storage | ☐ |
+| Storage Class | `azure-files-sc-ems` | 7.3 | Azure Files for EMS with NFS | ☐ |
+
+### 🗄️ **Database and External Services**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Namespace | `tibco-ext` | 7.4 | External services namespace | ☐ |
+| Helm Release | `postgresql` | 7.4 | PostgreSQL database for Control Plane | ☐ |
+| PostgreSQL Database | `postgres` | 7.4 | Control Plane metadata storage | ☐ |
+| Deployment | `maildev` | 7.5 | Development email server for Control Plane | ☐ |
+| Service | `development-mailserver` | 7.5 | Email server service (SMTP port 1025, Web port 1080) | ☐ |
+| Route | `maildev-route` | 7.5 | Email web interface access | ☐ |
+
+### 🔑 **Certificates and Secrets**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| TLS Certificate | Let's Encrypt for `*.${CP_MY_DNS_DOMAIN}` | 8.2 | Control Plane UI SSL certificate | ☐ |
+| TLS Certificate | Let's Encrypt for `*.${CP_TUNNEL_DNS_DOMAIN}` | 8.2 | Hybrid connectivity SSL certificate | ☐ |
+| TLS Secret | `${CP_MY_TLS_SECRET_NAME}` (custom-my-tls) | 8.2 | Control Plane UI certificate storage | ☐ |
+| TLS Secret | `${CP_TUNNEL_TLS_SECRET_NAME}` (custom-tunnel-tls) | 8.2 | Tunnel certificate storage | ☐ |
+| Generic Secret | `session-keys` | 8.3 | Control Plane session encryption keys | ☐ |
+| Generic Secret | `cporch-encryption-secret` | 8.5 | Control Plane orchestration encryption | ☐ |
+| Generic Secret | `${CP_DB_SECRET_NAME}` | 8.6 | Database credentials for Control Plane | ☐ |
+
+### 🏗️ **TIBCO Platform Control Plane Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Namespace | `${CP_INSTANCE_ID}-ns` | 8.1 | Control Plane isolation namespace | ☐ |
+| Helm Release | `tibco-cp-base` | 8.4 | Control Plane unified chart (v1.14.0) | ☐ |
+| Ingress Route | `*.${CP_MY_DNS_DOMAIN}` | 8.4 | Control Plane UI access | ☐ |
+| Ingress Route | `*.${CP_TUNNEL_DNS_DOMAIN}` | 8.4 | Hybrid connectivity access | ☐ |
+
+### 🚀 **TIBCO Platform Data Plane Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Namespace | `${DP_NAMESPACE}` (dp1) | 9.2 | Data Plane isolation namespace | ☐ |
+| Helm Release | `dp-configure-namespace` | 9.2 | Data Plane namespace configuration | ☐ |
+| Helm Release | `dp-core-infrastructure` | 9.2 | Data Plane core infrastructure | ☐ |
+| ServiceMonitor | `otel-collector-monitor` | 9.1 | Prometheus metrics collection | ☐ |
+| Network Label | `openshift-ingress` namespace | 9.1 | Network policy for DP ingress | ☐ |
+| SCC Assignment | `privileged` to `default` SA in dp1 | 9.1 | Data Plane workload permissions | ☐ |
+| SCC Assignment | `privileged` to `sa` SA in dp1 | 9.1 | Data Plane service permissions | ☐ |
+
+### 📊 **Observability Objects**
+
+| **Object Type** | **Name/Description** | **Step** | **Purpose** | **Status** |
+|:----------------|:---------------------|:---------|:------------|:-----------|
+| Service Account | `thanos-client` | 9.1 | External Prometheus access | ☐ |
+| Cluster Role Binding | `cluster-monitoring-view` to `thanos-client` | 9.1 | Prometheus metrics access | ☐ |
+
+### 🎛️ **Configuration Variables and Environment**
+
+| **Category** | **Count** | **Step** | **Purpose** | **Status** |
+|:-------------|:----------|:---------|:------------|:-----------|
+| Azure Infrastructure Variables | 14 | 1, 7.1 | Azure and cluster configuration | ☐ |
+| Network Configuration Variables | 4 | 7.1 | Network and CIDR settings | ☐ |
+| DNS and Domain Variables | 6 | 7.1 | Domain and ingress configuration | ☐ |
+| Storage Configuration Variables | 2 | 7.1 | Storage class definitions | ☐ |
+| Container Registry Variables | 4 | 7.1 | Image registry access | ☐ |
+| Control Plane Variables | 18 | 7.1 | Control Plane specific settings | ☐ |
+| Data Plane Variables | 1 | 7.1 | Data Plane specific settings | ☐ |
+
+### 🔧 **Verification Commands**
+
+Use these commands to verify the deployment status:
+
+```bash
+# Check all namespaces
+oc get ns | grep -E "(cp1-ns|dp1|tibco-ext)"
+
+# Check storage classes
+oc get sc | grep -E "(azure-files-sc|azure-disk-sc)"
+
+# Check security context constraints
+oc get scc tp-scc
+
+# Check Control Plane pods
+oc get pods -n ${CP_INSTANCE_ID}-ns
+
+# Check Data Plane pods
+oc get pods -n ${DP_NAMESPACE}
+
+# Check PostgreSQL
+oc get pods -n tibco-ext
+
+# Check email server
+oc get pods -n tibco-ext -l app=development-mailserver
+
+# Check email server route
+oc get route maildev-route -n tibco-ext
+
+# Test email server accessibility
+curl -I https://mail.nxp.atsnl-emea.azure.dataplanes.pro
+
+# Check External DNS
+oc get pods -n external-dns-system
+oc logs -n external-dns-system deployment/external-dns | tail -10
+
+# Check certificates
+oc get secrets -n ${CP_INSTANCE_ID}-ns | grep tls
+
+# Check ingress routes
+oc get routes -n ${CP_INSTANCE_ID}-ns
+```
+
+---
+
+**📝 Note**: This checklist serves as a comprehensive verification tool. Mark each item as complete (☑️) as you progress through the deployment to ensure nothing is missed.
+
