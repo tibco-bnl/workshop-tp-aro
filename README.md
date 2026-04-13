@@ -1,16 +1,25 @@
 # TIBCO Platform on Azure Red Hat OpenShift (ARO) Workshop
 
-> **Current Release:** [v1.15.0](./releases/v1.15.0) | **TIBCO Platform CP Version:** 1.15.0  
+> **Current Release:** [v1.16.0](./releases/v1.16.0) | **TIBCO Platform CP Version:** 1.16.0  
 > 📋 **Release History:** See `releases` folder for all versions  
-> 🔄 **Upgrading from 1.14.0?** See the [1.15.0 Release Notes](./releases/v1.15.0#upgrade-path)
+> 🔄 **Upgrading from 1.15.0?** See the [1.16.0 Release Notes](./releases/v1.16.0#upgrade-path)
 
 This repository provides comprehensive guides and resources for deploying **TIBCO Platform** on **Azure Red Hat OpenShift (ARO)** clusters. It covers multiple deployment scenarios from basic ARO cluster setup to full Control Plane and Data Plane deployments with observability.
 
 ## 🎯 Version Selection
 
-**⚠️ Important:** TIBCO Platform version 1.15.0 includes breaking changes from 1.14.0. Choose the appropriate documentation for your deployment:
+**⚠️ Important:** TIBCO Platform version 1.16.0 includes new features for license management, AI capabilities, and monitoring. Choose the appropriate documentation for your deployment:
 
-### 🌟 Version 1.15.0 (Current - Recommended for New Deployments)
+### 🌟 Version 1.16.0 (Current - Recommended for New Deployments)
+- ✅ **License Management**: Automated 90/30/7 day expiration alerts
+- ✅ **BW6 AI Plugin 6.0.0**: RAG capabilities for AI-powered integrations
+- ✅ **Enhanced Monitoring**: Improved BW5 monitoring and observability
+- ✅ **Flogo Improvements**: Init and sidecar container support
+- ✅ **OpenShift Ready**: Optimized for ARO with enhanced SCC and Router support
+- 📘 [Quick Reference (v1.16)](./howto/v1.16/QUICK-REFERENCE)
+- 📋 [Release Notes (v1.16.0)](./releases/v1.16.0)
+
+### 📦 Version 1.15.0 (Previous Release)
 - ✅ **Latest Features**: Enhanced security, improved network policies, OpenShift Router support
 - ✅ **New Capabilities**: Event processing, updated Developer Hub 1.15.14
 - ✅ **Better Observability**: Improved monitoring and logging stack
@@ -19,15 +28,17 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 - 📘 [Setup Guide: DP Only  (v1.15)](./howto/v1.15/how-to-dp-openshift-aro-aks-setup-guide)
 - 📋 [Release Notes (v1.15.0)](./releases/v1.15.0)
 
-### 📦 Version 1.14.0 (Previous Release)
+### 📦 Version 1.14.0 (Archived)
 - ✅ **Proven Stability**: Production-tested and widely deployed
 - ✅ **Complete Documentation**: Comprehensive battle-tested guides
 - 📘 [Setup Guide: CP + DP (v1.14)](./howto/v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Setup Guide: DP Only (v1.14)](./howto/v1.14/how-to-dp-openshift-aro-aks-setup-guide)
 - 📋 [Release Notes (v1.14.0)](./releases/v1.14.0)
 
-### 🔄 Upgrading from v1.14.0 to v1.15.0
-TIBCO provides an automated upgrade script. See the [Upgrade Path section](./releases/v1.15.0#upgrade-path) in the v1.15.0 release notes.
+### 🔄 Upgrading Between Versions
+- **From v1.15.0 → v1.16.0**: Direct upgrade supported. See [1.16.0 Release Notes](./releases/v1.16.0#upgrade-path)
+- **From v1.14.0 → v1.16.0**: Upgrade to v1.15.0 first, then to v1.16.0
+- **From v1.14.0 → v1.15.0**: TIBCO provides an automated upgrade script. See [1.15.0 Release Notes](./releases/v1.15.0#upgrade-path)
 
 ---
 
@@ -46,7 +57,20 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🏗️ Version-Specific Setup Guides
 
-#### Version 1.15.0 (Current Release)
+#### Version 1.16.0 (Current Release)
+**[📖 Quick Reference Guide (v1.16)](./howto/v1.16/QUICK-REFERENCE)**
+- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.16.0 on ARO
+- 🔧 **New Features**: License management, BW6 AI Plugin, enhanced monitoring, Flogo init/sidecar containers
+- ⏱️ **Duration**: Reference guide (instant lookup)
+
+**[📖 Documentation Summary (v1.16)](./howto/v1.16/DOCUMENTATION-SUMMARY)**
+- 🎯 **Scope**: Overview of v1.16.0 updates and changes
+- 🔧 **Features**: Container registry updates, ARO-specific considerations, upgrade paths
+- ⏱️ **Duration**: 10-15 minutes read
+
+**Note:** Complete setup guides for v1.16.0 are being developed. For now, refer to v1.15.0 guides and apply v1.16.0-specific updates from the release notes.
+
+#### Version 1.15.0 (Previous Release)
 **[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
 - 🎯 **Scope**: Complete TIBCO Platform 1.15.0 deployment on ARO
 - 🔧 **New Features**: Enhanced secrets management, OpenShift Router support, improved SCCs
