@@ -17,6 +17,9 @@ This document summarizes the updates made to the workshop-tp-aro repository for 
 ### Modified Files
 1. **README.md** - Updated to reference v1.16.0 as current release
 
+### Primary Setup Guide
+- **[howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide.md](../how-to-cp-and-dp-openshift-aro-aks-setup-guide.md)** - Full CP + DP deployment walkthrough (latest). Includes hardened SCC configuration (`MustRunAsNonRoot`) with compatibility analysis for all TIBCO Platform charts.
+
 ## Key Changes in v1.16.0
 
 ### New Features

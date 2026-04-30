@@ -240,7 +240,8 @@ export CP_ADMIN_DNS="admin.${CP_INSTANCE_ID}.${ARO_DOMAIN}"
 
 ## Useful Links
 
-- [v1.16.0 Release Notes](../releases/v1.16.0.md)
+- [CP + DP Setup Guide (full walkthrough)](../how-to-cp-and-dp-openshift-aro-aks-setup-guide.md)
+- [v1.16.0 Release Notes](../../releases/v1.16.0.md)
 - [TIBCO Platform Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm)
 - [OpenShift Documentation](https://docs.openshift.com/)
 - [ARO Documentation](https://learn.microsoft.com/en-us/azure/openshift/)

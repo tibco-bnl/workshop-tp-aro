@@ -16,6 +16,7 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 - ✅ **Enhanced Monitoring**: Improved BW5 monitoring and observability
 - ✅ **Flogo Improvements**: Init and sidecar container support
 - ✅ **OpenShift Ready**: Optimized for ARO with enhanced SCC and Router support
+- 📘 [Setup Guide: CP + DP](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Quick Reference (v1.16)](./howto/v1.16/QUICK-REFERENCE)
 - 📋 [Release Notes (v1.16.0)](./releases/v1.16.0)
 
@@ -68,7 +69,10 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - 🔧 **Features**: Container registry updates, ARO-specific considerations, upgrade paths
 - ⏱️ **Duration**: 10-15 minutes read
 
-**Note:** Complete setup guides for v1.16.0 are being developed. For now, refer to v1.15.0 guides and apply v1.16.0-specific updates from the release notes.
+**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
+- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (latest, includes hardened SCC configuration)
+- 🔧 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, SCC hardening, CP + DP deployment
+- ⏱️ **Duration**: 3-4 hours
 
 #### Version 1.15.0 (Previous Release)
 **[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
