@@ -488,12 +488,25 @@ tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   MustRunAsNonRoot  MustRunAs 
 >
 > **Option B: Create a dedicated narrow SCC for FluentBit only**
 >
-> If FluentBit is required, create a second SCC that allows root **only for FluentBit sidecar service accounts**, keeping `tp-scc` hardened for all other workloads:
+> If FluentBit is required, create a second SCC to allow root containers, while keeping `tp-scc` hardened for pods that have no FluentBit sidecar.
 >
 > > [!IMPORTANT]
-> > **How OpenShift SCC priority works**: OpenShift evaluates SCCs in descending priority order and uses the **first one that validates the pod**. `tp-scc` has `priority: 10`. Setting `tp-fluentbit-scc` to `priority: 9` (lower) ensures `tp-scc` is always tried first. Non-root pods pass `tp-scc` and stop there. FluentBit pods (`runAsUser: 0`) fail `tp-scc` (`MustRunAsNonRoot`) and fall through to `tp-fluentbit-scc`. If you set `tp-fluentbit-scc` priority higher than 10, it would be used for **all** pods (including non-root ones), defeating the hardening.
+> > **How OpenShift SCC selection actually works — read this carefully**
 > >
-> > **No values file changes needed**: SCCs are assigned cluster-side via `oc adm policy`. FluentBit runs as a sidecar in the same pod as the main container — they share the pod's service account. OpenShift picks one SCC per pod at admission.
+> > Both `tp-scc` and `tp-fluentbit-scc` are bound to the **same service accounts**. OpenShift does **not** separate SCCs per container — it picks **one SCC per pod** at admission time. The selection works as follows:
+> >
+> > 1. Collect all SCCs the pod's service account can use
+> > 2. Sort by priority descending: `tp-scc` (10) → `tp-fluentbit-scc` (9)
+> > 3. Validate the **entire pod spec** against each SCC in order
+> > 4. Use the first SCC that passes for all containers
+> >
+> > Because FluentBit is a **sidecar** running in the same pod as the main app container, the pod spec contains both `runAsUser: 1000` (main) and `runAsUser: 0` (FluentBit). `tp-scc` (`MustRunAsNonRoot`) fails the whole pod because of the FluentBit container, so OpenShift falls back to `tp-fluentbit-scc`.
+> >
+> > **⚠️ Known limitation**: `tp-fluentbit-scc` is applied to the **entire pod**, including the main application container — not just the FluentBit sidecar. OpenShift has no per-container SCC concept. This means the main container in a FluentBit-enabled pod also runs under the less-restrictive SCC. `tp-fluentbit-scc` is still significantly hardened (no privileged containers, no host access, all capabilities dropped, `allowPrivilegeEscalation: false`), but `runAsUser` is `RunAsAny` for the whole pod.
+> >
+> > Pods **without** a FluentBit sidecar are unaffected — they pass `tp-scc` at priority 10 and never see `tp-fluentbit-scc`.
+> >
+> > **This is why Option A (disabling FluentBit) is recommended**: it avoids this pod-level compromise entirely and keeps all pods under the fully hardened `tp-scc`.
 >
 > ```bash
 > oc apply -f - <<EOF
