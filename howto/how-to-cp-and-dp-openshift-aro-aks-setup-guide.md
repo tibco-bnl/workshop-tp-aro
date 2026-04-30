@@ -370,6 +370,21 @@ az aro show --name ${TP_CLUSTER_NAME} --resource-group ${TP_RESOURCE_GROUP} --qu
 
 **What this accomplishes:** Creates a custom SCC (`tp-scc`) that provides the minimum required security permissions for TIBCO Platform Control Plane and Data Plane components while maintaining security best practices.
 
+> [!IMPORTANT]
+> **Security Hardening (Recommended)**: The three `RunAsAny` fields in the original SCC have been replaced with more restrictive values following the principle of least privilege. See the explanation below before applying.
+>
+> | Field | Original | Hardened | Why |
+> |---|---|---|---|
+> | `runAsUser` | `RunAsAny` | `MustRunAsNonRoot` | Prevents containers from running as root (UID 0) |
+> | `fsGroup` | `RunAsAny` | `MustRunAs` range `1–65535` | Blocks GID 0 (root group) owning mounted volumes |
+> | `supplementalGroups` | `RunAsAny` | `MustRunAs` range `1–65535` | Prevents containers joining GID 0 or privileged OS groups |
+>
+> **`runAsUser: MustRunAsNonRoot`** — Any container that declares `runAsUser: 0` or whose image runs as root will be rejected at admission time. TIBCO Platform containers use built-in non-root users (e.g., UID 1000), so this does not break functionality while eliminating root container risk.
+>
+> **`fsGroup: MustRunAs` with range `1–65535`** — The `fsGroup` GID is applied to all volumes mounted by the pod and controls which group can read/write those volumes. Requiring `min: 1` explicitly excludes GID 0 (root group). Pods must now declare a non-root `fsGroup` in their `securityContext`.
+>
+> **`supplementalGroups: MustRunAs` with range `1–65535`** — Supplemental groups are additional Unix group memberships granted to the container process. Restricting to `min: 1` prevents a container from adding itself to GID 0 or any privileged system group (e.g., `shadow`, `disk`, `sudo`).
+
 Create a custom SCC for TIBCO workloads:
 
 ```bash
@@ -389,18 +404,24 @@ allowPrivilegedContainer: false
 allowedCapabilities:
 - NET_BIND_SERVICE
 fsGroup:
-    type: RunAsAny
+    type: MustRunAs
+    ranges:
+    - min: 1
+      max: 65535
 readOnlyRootFilesystem: false
 requiredDropCapabilities:
 - ALL
 runAsUser:
-    type: RunAsAny
+    type: MustRunAsNonRoot
 seLinuxContext:
     type: MustRunAs
 seccompProfiles:
 - runtime/default
 supplementalGroups:
-    type: RunAsAny
+    type: MustRunAs
+    ranges:
+    - min: 1
+      max: 65535
 volumes:
 - configMap
 - csi
@@ -418,10 +439,110 @@ Verify:
 ```bash
 oc get scc tp-scc
 
-NAME     PRIV    CAPS                   SELINUX     RUNASUSER   FSGROUP    SUPGROUP   PRIORITY   READONLYROOTFS   VOLUMES
-tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   RunAsAny    RunAsAny   RunAsAny   10         false            ["configMap","csi","downwardAPI","emptyDir","ephemeral","persistentVolumeClaim","projected","secret"]
+NAME     PRIV    CAPS                   SELINUX     RUNASUSER         FSGROUP    SUPGROUP   PRIORITY   READONLYROOTFS   VOLUMES
+tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   MustRunAsNonRoot  MustRunAs  MustRunAs  10         false            ["configMap","csi","downwardAPI","emptyDir","ephemeral","persistentVolumeClaim","projected","secret"]
 
 ```
+
+> [!WARNING]
+> **Helm Chart Compatibility Analysis — FluentBit Sidecar Conflict**
+>
+> After auditing all TIBCO Platform Helm charts in `tp-helm-charts`, the hardened SCC is **fully compatible** with all main application containers. However, **one class of component will be blocked**: the **FluentBit log-forwarding sidecar**, which is configured with `runAsUser: 0` and `runAsNonRoot: false` across multiple charts. This is a known FluentBit requirement documented in [fluent/fluent-bit#872](https://github.com/fluent/fluent-bit/issues/872#issuecomment-827763207).
+>
+> **Compatible (UID ≥ 1000 — no action needed):**
+>
+> | Chart | UID | Notes |
+> |---|---|---|
+> | All core CP/DP workloads | 1000 | artifactmanager, provisioners, proxies, etc. |
+> | `dp-bw5ce-app` | 2001 | All containers |
+> | `tibco-cp-messaging` / `msg-gateway-tp` | 1000 (default) | EMS/Pulsar — default uid=1000 |
+> | `on-premises-third-party/postgresql` | 1001 | `volumePermissions` init container is **disabled by default** |
+> | `opentelemetry-collector` | non-root | Root only if `presets.logsCollection.storeCheckpoints=true` — leave this disabled |
+>
+> **Blocked by `MustRunAsNonRoot` — FluentBit sidecars (runAsUser: 0):**
+>
+> | Chart | Component | Default State |
+> |---|---|---|
+> | `tibco-cp-hawk` | FluentBit sidecar | `enabled: true` |
+> | `tibco-cp-bw/bw-recipes` | FluentBit sidecar | `enabled: true` |
+> | `tibco-cp-bw/bw5ce-utilities` | FluentBit sidecar | `enabled: true` |
+> | `tibco-cp-bw/bwce-utilities` | FluentBit sidecar | `enabled: true` |
+> | `tibco-cp-flogo/flogo-recipes` | FluentBit sidecar | `enabled: true` |
+> | `tibco-cp-flogo/flogo-utilities` | FluentBit sidecar | `enabled: true` |
+> | `tibco-cp-base/tp-cp-o11y` | FluentBit sidecar | `enabled: true` |
+> | `tibco-developer-hub` | FluentBit sidecar | `enabled: true` |
+>
+> **Mitigation — choose one option:**
+>
+> **Option A (Recommended): Disable FluentBit sidecars — use OTel Collector instead**
+>
+> FluentBit is optional. If your observability stack uses the OpenTelemetry Collector (which runs non-root by default), disable the FluentBit sidecar for each affected chart by overriding the value at deploy time:
+> ```yaml
+> # Example: override in your helm values file for tibco-cp-hawk
+> global:
+>   logging:
+>     fluentbit:
+>       enabled: false
+> ```
+> Repeat the same `fluentbit.enabled: false` override for `tibco-cp-bw`, `tibco-cp-flogo`, and `tibco-cp-base` deployments.
+>
+> **Option B: Create a dedicated narrow SCC for FluentBit only**
+>
+> If FluentBit is required, create a second SCC that allows root **only for FluentBit sidecar service accounts**, keeping `tp-scc` hardened for all other workloads:
+> ```bash
+> oc apply -f - <<EOF
+> apiVersion: security.openshift.io/v1
+> kind: SecurityContextConstraints
+> metadata:
+>   name: tp-fluentbit-scc
+> priority: 11
+> allowHostDirVolumePlugin: false
+> allowHostIPC: false
+> allowHostNetwork: false
+> allowHostPID: false
+> allowHostPorts: false
+> allowPrivilegeEscalation: false
+> allowPrivilegedContainer: false
+> allowedCapabilities: []
+> requiredDropCapabilities:
+> - ALL
+> runAsUser:
+>   type: RunAsAny          # FluentBit needs root (UID 0)
+> fsGroup:
+>   type: MustRunAs
+>   ranges:
+>   - min: 0
+>     max: 65535
+> supplementalGroups:
+>   type: MustRunAs
+>   ranges:
+>   - min: 1
+>     max: 65535
+> seLinuxContext:
+>   type: MustRunAs
+> seccompProfiles:
+> - runtime/default
+> readOnlyRootFilesystem: false
+> volumes:
+> - configMap
+> - emptyDir
+> - projected
+> - secret
+> EOF
+>
+> # Bind only to the service accounts that run FluentBit pods
+> oc adm policy add-scc-to-user tp-fluentbit-scc \
+>   system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+> ```
+> This keeps all other pods under `tp-scc` (hardened) while allowing FluentBit to start.
+>
+> **If a non-FluentBit component fails admission**, check the pod's `securityContext` with `kubectl describe pod <pod-name> -n <namespace>`. The most common fix is to ensure the Helm values include an explicit non-root `fsGroup`:
+> ```yaml
+> podSecurityContext:
+>   fsGroup: 1000
+>   runAsNonRoot: true
+>   runAsUser: 1000
+> ```
 
 ---
 
