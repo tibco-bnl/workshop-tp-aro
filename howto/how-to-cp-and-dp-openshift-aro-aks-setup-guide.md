@@ -489,13 +489,19 @@ tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   MustRunAsNonRoot  MustRunAs 
 > **Option B: Create a dedicated narrow SCC for FluentBit only**
 >
 > If FluentBit is required, create a second SCC that allows root **only for FluentBit sidecar service accounts**, keeping `tp-scc` hardened for all other workloads:
+>
+> > [!IMPORTANT]
+> > **How OpenShift SCC priority works**: OpenShift evaluates SCCs in descending priority order and uses the **first one that validates the pod**. `tp-scc` has `priority: 10`. Setting `tp-fluentbit-scc` to `priority: 9` (lower) ensures `tp-scc` is always tried first. Non-root pods pass `tp-scc` and stop there. FluentBit pods (`runAsUser: 0`) fail `tp-scc` (`MustRunAsNonRoot`) and fall through to `tp-fluentbit-scc`. If you set `tp-fluentbit-scc` priority higher than 10, it would be used for **all** pods (including non-root ones), defeating the hardening.
+> >
+> > **No values file changes needed**: SCCs are assigned cluster-side via `oc adm policy`. FluentBit runs as a sidecar in the same pod as the main container — they share the pod's service account. OpenShift picks one SCC per pod at admission.
+>
 > ```bash
 > oc apply -f - <<EOF
 > apiVersion: security.openshift.io/v1
 > kind: SecurityContextConstraints
 > metadata:
 >   name: tp-fluentbit-scc
-> priority: 11
+> priority: 9
 > allowHostDirVolumePlugin: false
 > allowHostIPC: false
 > allowHostNetwork: false
@@ -529,12 +535,19 @@ tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   MustRunAsNonRoot  MustRunAs 
 > - projected
 > - secret
 > EOF
->
-> # Bind only to the service accounts that run FluentBit pods
-> oc adm policy add-scc-to-user tp-fluentbit-scc \
->   system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
 > ```
 > This keeps all other pods under `tp-scc` (hardened) while allowing FluentBit to start.
+>
+> > [!NOTE]
+> > **Binding the SCC to service accounts is done at Step 8.1**, not here.
+> > The `${CP_INSTANCE_ID}-ns` namespace and `${CP_INSTANCE_ID}-sa` service account are created during Step 8.1. The binding commands are included there so you do not need to return to this step.
+> > If you have already completed Step 8.1, run the following now:
+> > ```bash
+> > oc adm policy add-scc-to-user tp-fluentbit-scc \
+> >   system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+> > oc adm policy add-scc-to-user tp-fluentbit-scc \
+> >   system:serviceaccount:${CP_INSTANCE_ID}-ns:default
+> > ```
 >
 > **If a non-FluentBit component fails admission**, check the pod's `securityContext` with `kubectl describe pod <pod-name> -n <namespace>`. The most common fix is to ensure the Helm values include an explicit non-root `fsGroup`:
 > ```yaml
@@ -1129,6 +1142,20 @@ oc adm policy add-scc-to-user tp-scc system:serviceaccount:${CP_INSTANCE_ID}-ns:
 ```
 
 These permissions ensure that Control Plane components can access required resources and run with the security context defined in the custom `tp-scc` we created earlier, which provides the minimum required privileges while maintaining security best practices.
+
+> [!NOTE]
+> **Option B only — FluentBit SCC binding**: If you chose **Option B** in [Step 6](#step-6-configure-security-context-constraints) (dedicated `tp-fluentbit-scc` instead of disabling FluentBit), bind the FluentBit SCC to the same service accounts now:
+> ```bash
+> oc adm policy add-scc-to-user tp-fluentbit-scc \
+>   system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+> oc adm policy add-scc-to-user tp-fluentbit-scc \
+>   system:serviceaccount:${CP_INSTANCE_ID}-ns:default
+> ```
+> This allows FluentBit sidecar containers (which run as `runAsUser: 0`) to start while all other CP workloads remain under the hardened `tp-scc`.
+> To verify the binding:
+> ```bash
+> oc describe scc tp-fluentbit-scc | grep -A5 'Users:'
+> ```
 
 > [!IMPORTANT]
 > **Troubleshooting SCC Permissions**: If you encounter pod creation errors with messages like "forbidden: unable to validate against any security context constraint", refer to the [SCC Permissions Troubleshooting Guide](aro-kul/troubleshooting-scc-permissions) for detailed resolution steps. This is a common issue that occurs when SCC permissions are not properly granted before deployment.
