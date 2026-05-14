@@ -11,10 +11,11 @@ title: TIBCO Platform Control Plane and Data Plane Setup on ARO
 This document is with extra details while following the above document and make all the things working.
 
 > [!NOTE]
-> **Version 1.14.0 Update**: This document has been updated to reflect the latest TIBCO Platform Control Plane version 1.14.0. Key changes include:
+> **Version 1.16.0 Update**: This document has been updated to reflect the latest TIBCO Platform Control Plane version 1.16.0. Key changes include:
+> - **Simplified DNS Structure**: Single-level subdomain structure (e.g., `admin.baseURL` instead of `admin.cp1-my.apps.baseURL`) — wildcard ingress policy no longer required
 > - Unified chart deployment using `tibco-cp-base` (previously split between `platform-bootstrap` and `platform-base`)
-> - Updated chart versions and deployment procedures
-> - Based on tp-helm-charts commit c455ffb and later updates 
+> - Updated chart versions to 1.16.0
+> - BW6 AI Plugin 6.0.0 with RAG support, Flogo init/sidecar container support, enhanced BW5 monitoring
 
 Note: This document is copy of gh-pages doc from [here:](https://tibco-bnl.github.io/workshop-tibco-platform/docs/howto/how-to-dp-openshift-aro-aks-setup-guide.html#get-openshift-ingress-domain) hence links in table of contents will not work if you are viewing in google docs. 
 
@@ -650,6 +651,54 @@ export TP_DOMAIN="${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}" # domain to be used
 export TP_INGRESS_CLASS="openshift-default" # name of main ingress class used by capabilities
 
 # ========================================
+# CONTROL PLANE DNS CONFIGURATION
+# ========================================
+# Choose ONE of the following DNS configuration approaches:
+
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │ OPTION 1: Simplified DNS Structure (RECOMMENDED for v1.16.0)                │
+# │ Single-level subdomain structure: admin.baseURL                              │
+# │ No wildcard ingress policy required — works on restricted ARO clusters      │
+# └─────────────────────────────────────────────────────────────────────────────┘
+# Uncomment these lines for simplified DNS structure:
+export TP_BASE_DNS_DOMAIN="${TP_DOMAIN}"  # Base domain for Control Plane (e.g. apps.example.com)
+export CP_ADMIN_HOST_PREFIX="admin"       # Admin UI: admin.${TP_BASE_DNS_DOMAIN}
+export CP_SUBSCRIPTION="dev"             # Subscription: dev.${TP_BASE_DNS_DOMAIN}
+export CP_HYBRID_CONNECTIVITY="true"     # Set to "false" to disable hybrid-proxy (saves resources)
+# If hybrid connectivity enabled, tunnel is a subdomain of the same base domain:
+# export CP_TUNNEL_HOST_PREFIX="tunnel"  # Tunnel: tunnel.${TP_BASE_DNS_DOMAIN}
+
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │ OPTION 2: Legacy Multi-Level DNS Structure (Backward Compatible)            │
+# │ Multi-level subdomain: admin.cp1-my.apps.baseURL                            │
+# │ Requires WildcardsAllowed on the ingress controller                         │
+# └─────────────────────────────────────────────────────────────────────────────┘
+# Uncomment and use these instead if you need legacy DNS:
+# export CP_INSTANCE_ID="cp1"
+# export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN}
+# export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}
+# export CP_HYBRID_CONNECTIVITY="true"
+
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │ DNS Configuration Guide                                                      │
+# ├─────────────────────────────────────────────────────────────────────────────┤
+# │ OPTION 1 (Simplified) Results In:                                           │
+# │   - Admin UI: https://admin.apps.example.com                                │
+# │   - Subscription: https://dev.apps.example.com                              │
+# │   - Tunnel (if enabled): https://tunnel.apps.example.com                    │
+# │   - No wildcardPolicy change needed on ingresscontroller                    │
+# │                                                                              │
+# │ OPTION 2 (Legacy) Results In:                                               │
+# │   - Admin UI: https://admin.cp1-my.apps.example.com                         │
+# │   - Subscription: https://<subscription>.cp1-my.apps.example.com            │
+# │   - Tunnel: https://<subscription>.cp1-tunnel.apps.example.com              │
+# │   - Requires: wildcardPolicy: WildcardsAllowed on ingresscontroller         │
+# └─────────────────────────────────────────────────────────────────────────────┘
+
+# For simplified DNS, derive CP_INSTANCE_ID from subscription prefix (used for namespace/SA names)
+export CP_INSTANCE_ID="cp1"
+
+# ========================================
 # STORAGE CONFIGURATION VARIABLES
 # ========================================
 # Storage specific variables
@@ -686,23 +735,25 @@ export HELM_URL=tibco-platform-public
 # CONTROL PLANE SPECIFIC VARIABLES
 # ========================================
 ## Control Plane Instance specific variables (only needed if deploying Control Plane)
-export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
+# CP_INSTANCE_ID is used for namespace, service account, and DB name prefix
 # ⚠️ IMPORTANT: CP_INSTANCE_ID must NOT contain hyphens (-) as it is used as database name prefix
 # PostgreSQL database names cannot contain hyphens. Use underscores (_) or alphanumeric only.
 # Valid examples: cp1, nxpcp, nxp_tibco_cp, prod1
 # Invalid examples: nxp-tibco-cp, my-cp, prod-1
-export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used for Control Plane UI
-export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used for hybrid connectivity
+# (CP_INSTANCE_ID is already set above in the DNS section)
 
-# Control Plane chart versions (unified chart since 1.13.0)
-export CP_TIBCO_CP_BASE_VERSION=1.14.0
+# Simplified DNS: single cert covers all CP domains
+export CP_TLS_SECRET_NAME="cp-tls-cert" # TLS secret for Control Plane (simplified DNS)
+
+# Legacy DNS TLS secrets (only needed if using Option 2 above)
+# export CP_MY_TLS_SECRET_NAME="custom-my-tls"
+# export CP_TUNNEL_TLS_SECRET_NAME="custom-tunnel-tls"
+
+# Control Plane chart versions
+export CP_TIBCO_CP_BASE_VERSION=1.16.0
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # storage size for Control Plane components
-
-# TLS Secret names for Control Plane
-export CP_MY_TLS_SECRET_NAME="custom-my-tls" # TLS secret for Control Plane UI domain
-export CP_TUNNEL_TLS_SECRET_NAME="custom-tunnel-tls" # TLS secret for hybrid connectivity domain
 
 # Email configuration for certificates
 export EMAIL="cp-test@tibco.com" # email for certificates (required if deploying Control Plane)
@@ -742,22 +793,37 @@ export DP_NAMESPACE="dp1" # Replace with your namespace
 
 ### Step 7.2: Configure Ingress Controller
 
-**Why this step is needed:** TIBCO Control Plane uses wildcard domains for the `my` (Control Plane UI) and `tunnel` (hybrid connectivity) domains. The default OpenShift ingress controller restricts wildcard domains and cross-namespace ingress ownership for security reasons.
+**Why this step is needed:** The default OpenShift ingress controller restricts cross-namespace ingress ownership. Depending on your DNS configuration choice, wildcard domain support may also be needed.
 
 **What this accomplishes:** 
-- Enables wildcard domain support required by Control Plane services
 - Allows inter-namespace ingress ownership for Control Plane components
-- Ensures external traffic can reach Control Plane services properly
+- Optionally enables wildcard domain support (legacy DNS only)
 
 > [!NOTE]
-> We are using the default Ingress Controller provisioned for ARO cluster. This configuration is shared by both Control Plane and Data Plane.
+> - **Simplified DNS (Option 1 — Recommended)**: Only `namespaceOwnership: InterNamespaceAllowed` is needed. No wildcard policy required. This avoids issues on ARO clusters where `WildcardsAllowed` is blocked by policy.
+> - **Legacy DNS (Option 2)**: Both `WildcardsAllowed` and `InterNamespaceAllowed` are required.
+> - This configuration is shared by both Control Plane and Data Plane.
 
-The default ingress controller needs to be configured to allow wildcard domains and inter-namespace ownership (required for Control Plane `my` and `tunnel` domains):
+**For Simplified DNS (Option 1 — Recommended):**
+
+```bash
+oc -n openshift-ingress-operator patch ingresscontroller/default --type='merge' \
+  -p '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}'
+```
+
+**For Legacy DNS (Option 2) — requires cluster-admin and cluster policy must allow it:**
 
 ```bash
 oc -n openshift-ingress-operator patch ingresscontroller/default --type='merge' \
   -p '{"spec":{"routeAdmission":{"wildcardPolicy":"WildcardsAllowed","namespaceOwnership":"InterNamespaceAllowed"}}}'
 ```
+
+> [!TIP]
+> Verify the current ingress controller admission policy:
+> ```bash
+> oc get ingresscontroller/default -n openshift-ingress-operator \
+>   -o jsonpath='{.spec.routeAdmission}'
+> ```
 
 ### Step 7.3: Install Storage Classes
 
@@ -1183,34 +1249,25 @@ These permissions ensure that Control Plane components can access required resou
 
 **What this accomplishes:**
 - **SSL/TLS certificates**: Creates valid certificates for Control Plane domains using Let's Encrypt
-- **DNS configuration**: Sets up DNS records for Control Plane services and hybrid connectivity
-- **Wildcard domains**: Enables flexible subdomain usage for different Control Plane services
-- **Certificate automation**: Uses certbot for automated certificate generation and renewal
+- **DNS configuration**: Sets up DNS records for Control Plane services
+- **Certificate management**: Approach depends on your DNS structure choice from Step 7.1
 
 > [!IMPORTANT]
 > For the scope of this document, we use Azure DNS Service for DNS hosting, resolution.
 
-We recommend that you use different DNS records and certificates for `my` (Control Plane application) and `tunnel` (hybrid connectivity) domains. You can use wildcard domain names for these Control Plane application and hybrid connectivity domains. 
+#### Certificate Strategy Based on DNS Configuration
 
-**Why wildcard certificates are recommended:**
-- **Admin interface**: The Control Plane admin interface will be accessible at `admin.${CP_MY_DNS_DOMAIN}`
-- **Subscription domains**: Different subscriptions can have their own subdomains like `<subscription-name>.${CP_MY_DNS_DOMAIN}`
-- **Tunnel services**: Various tunnel endpoints will use subdomains under `${CP_TUNNEL_DNS_DOMAIN}`
-- **Simplified management**: One wildcard certificate covers all current and future subdomains
+Your certificate strategy depends on which DNS configuration you chose in Step 7.1:
 
-The certificates for both the domains are created [using certbot commands](https://eff-certbot.readthedocs.io/en/stable/using.html#certbot-commands)
+**For Simplified DNS (Option 1 — Recommended):**
+- Single wildcard certificate for `*.${TP_BASE_DNS_DOMAIN}` covers admin, subscription, and tunnel
+- Simpler management: one cert, one DNS zone, specific A records per host
 
-We recommend that you use different `CP_INSTANCE_ID` to distinguish multiple Control Plane installations within a cluster.
+**For Legacy DNS (Option 2):**
+- Separate wildcard certificates for `*.${CP_MY_DNS_DOMAIN}` and `*.${CP_TUNNEL_DNS_DOMAIN}`
+- Requires wildcard DNS entries and `WildcardsAllowed` on ingress controller
 
-`TP_DOMAIN` is exported as part of [Export required variables](#export-required-variables)
-
-Please export below variables and values related to domains (as descirbed above) if not done:
-```bash
-CP_INSTANCE_ID,CP_MY_DNS_DOMAIN,CP_TUNNEL_DNS_DOMAIN,EMAIL
-```
-
-If you are using network policies, to ensure that network traffic is allowed from the default ingress namespace to the Control Plane namespace pods, label the namespace running following command
-
+If you are using network policies, label the ingress namespace:
 ```bash
 oc label namespace openshift-ingress networking.platform.tibco.com/non-cp-ns=enable --overwrite=true
 ```
@@ -1250,7 +1307,7 @@ apk add curl socat
 curl https://get.acme.sh | sh
 
 # Use acme.sh instead of certbot for certificate generation
-~/.acme.sh/acme.sh --issue --dns -d "*.${CP_MY_DNS_DOMAIN}" --yes-I-know-dns-manual-mode-enough-go-ahead-please
+~/.acme.sh/acme.sh --issue --dns -d "*.${TP_BASE_DNS_DOMAIN}" --yes-I-know-dns-manual-mode-enough-go-ahead-please
 ```
 
 **Option 4: Run certbot in separate Docker container**
@@ -1262,7 +1319,104 @@ alias certbot='docker run --rm -it -v $PWD/certs:/etc/letsencrypt -v $PWD/work:/
 certbot --version
 ```
 
-#### Certificate and Secret for MY Domain
+---
+
+## Certificate Generation - Choose Your Approach
+
+Select the certificate generation method that matches your DNS configuration choice from Step 7.1.
+
+### 🔷 Approach 1: Simplified DNS Structure (Recommended for v1.16.0)
+
+This approach generates a single wildcard certificate covering all Control Plane subdomains.
+
+**Benefits:**
+- Single certificate covers admin, subscription, and tunnel
+- Simpler management and renewal
+- No `WildcardsAllowed` ingress policy needed — works on restricted ARO clusters
+- Best for new 1.16.0 deployments
+
+#### Step 1: Generate Wildcard Certificate for Base Domain
+
+```bash
+export SCRATCH_DIR="/tmp/cp-base-cert"
+
+certbot certonly --manual \
+  --preferred-challenges=dns \
+  --email ${EMAIL_FOR_CERTBOT} \
+  --server https://acme-v02.api.letsencrypt.org/directory \
+  --agree-tos \
+  -d "*.${TP_BASE_DNS_DOMAIN}" \
+  --config-dir "${SCRATCH_DIR}/config" \
+  --work-dir "${SCRATCH_DIR}/work" \
+  --logs-dir "${SCRATCH_DIR}/logs"
+```
+
+> **Note:** Do not interrupt the command. Create a TXT record `_acme-challenge.${TP_SANDBOX}` under your `${TP_TOP_LEVEL_DOMAIN}` DNS zone with the value from certbot output. After creating the record, press Enter to complete.
+
+#### Step 2: Create Kubernetes TLS Secret
+
+```bash
+oc create secret tls ${CP_TLS_SECRET_NAME} \
+  -n ${CP_INSTANCE_ID}-ns \
+  --cert=${SCRATCH_DIR}/config/live/${TP_BASE_DNS_DOMAIN}/fullchain.pem \
+  --key=${SCRATCH_DIR}/config/live/${TP_BASE_DNS_DOMAIN}/privkey.pem
+```
+
+#### Step 3: Create DNS A Records
+
+```bash
+# Get the ARO ingress IP
+INGRESS_IP="$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
+
+# Create A record for admin subdomain
+az network dns record-set a add-record \
+  -g ${TP_DNS_RESOURCE_GROUP} \
+  -z ${TP_TOP_LEVEL_DOMAIN} \
+  -n "${CP_ADMIN_HOST_PREFIX}.${TP_SANDBOX}" \
+  -a ${INGRESS_IP}
+
+# Create A record for subscription subdomain
+az network dns record-set a add-record \
+  -g ${TP_DNS_RESOURCE_GROUP} \
+  -z ${TP_TOP_LEVEL_DOMAIN} \
+  -n "${CP_SUBSCRIPTION}.${TP_SANDBOX}" \
+  -a ${INGRESS_IP}
+
+# If hybrid connectivity is enabled, create tunnel A record
+if [ "${CP_HYBRID_CONNECTIVITY}" = "true" ]; then
+  az network dns record-set a add-record \
+    -g ${TP_DNS_RESOURCE_GROUP} \
+    -z ${TP_TOP_LEVEL_DOMAIN} \
+    -n "${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_SANDBOX}" \
+    -a ${INGRESS_IP}
+fi
+```
+
+**Alternative: Wildcard DNS (covers all current and future subdomains):**
+```bash
+az network dns record-set a add-record \
+  -g ${TP_DNS_RESOURCE_GROUP} \
+  -z ${TP_TOP_LEVEL_DOMAIN} \
+  -n "*.${TP_SANDBOX}" \
+  -a ${INGRESS_IP}
+```
+
+#### Step 4: Verify DNS Resolution
+
+```bash
+dig +short ${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}
+dig +short ${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}
+# If hybrid connectivity enabled:
+# dig +short ${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}
+```
+
+---
+
+### 🔶 Approach 2: Legacy Multi-Level DNS Structure (Backward Compatible)
+
+**Use this approach if:** Upgrading from v1.14.x or needing multiple CP instances in the same cluster.
+
+#### Step 1: Generate Certificate for MY Domain
 
 ```bash
 export SCRATCH_DIR="/tmp/${CP_INSTANCE_ID}-my"
@@ -1278,9 +1432,7 @@ certbot certonly --manual \
   --logs-dir "${SCRATCH_DIR}/logs"
 ```
 
-> **Note:** Do not interrupt the command. You will need to create multiple TXT record sets under the `TP_CLUSTER_DOMAIN` DNS zone:
-> 1. `_acme-challenge.${CP_INSTANCE_ID}-my.apps` for the wildcard domain
-> Create each TXT record with the values mentioned in the certbot output, then press Enter to complete the command.
+> **Note:** Create TXT record `_acme-challenge.${CP_INSTANCE_ID}-my.apps` under `${TP_CLUSTER_DOMAIN}` DNS zone with the value from certbot output, then press Enter.
 
 ```bash
 oc create secret tls custom-my-tls \
@@ -1289,7 +1441,7 @@ oc create secret tls custom-my-tls \
   --key=$SCRATCH_DIR/config/live/${CP_MY_DNS_DOMAIN}/privkey.pem
 ```
 
-#### Certificate and Secret for TUNNEL Domain
+#### Step 2: Generate Certificate for TUNNEL Domain
 
 ```bash
 export SCRATCH_DIR="/tmp/${CP_INSTANCE_ID}-tunnel"
@@ -1305,7 +1457,7 @@ certbot certonly --manual \
   --logs-dir "${SCRATCH_DIR}/logs"
 ```
 
-> **Note:** Do not interrupt the command. Create the `_acme-challenge.${CP_INSTANCE_ID}-tunnel.apps` TXT record set under the `TP_CLUSTER_DOMAIN` DNS zone with the value mentioned in the output of above command. After the record set is created, press Enter to complete the command.
+> **Note:** Create TXT record `_acme-challenge.${CP_INSTANCE_ID}-tunnel.apps` under `${TP_CLUSTER_DOMAIN}` DNS zone, then press Enter.
 
 ```bash
 oc create secret tls custom-tunnel-tls \
@@ -1314,61 +1466,30 @@ oc create secret tls custom-tunnel-tls \
   --key=$SCRATCH_DIR/config/live/${CP_TUNNEL_DNS_DOMAIN}/privkey.pem
 ```
 
-#### Create Record Sets for MY and TUNNEL Domains
-
-**Why wildcard DNS entries are used:** The TIBCO Control Plane uses dynamic subdomains for different services and subscription domains. Using wildcard DNS entries (`*.${CP_MY_DNS_DOMAIN}` and `*.${CP_TUNNEL_DNS_DOMAIN}`) allows the platform to automatically handle:
-- **Control Plane admin interface**: `admin.${CP_MY_DNS_DOMAIN}`
-- **Subscription domains**: `<subscription-name>.${CP_MY_DNS_DOMAIN}`
-- **Tunnel connectivity**: Various tunnel endpoints under `*.${CP_TUNNEL_DNS_DOMAIN}`
-
-Add the wildcard record sets under the DNS Zones so that all Control Plane services are accessible:
+#### Step 3: Create Wildcard DNS Records
 
 ```bash
 INGRESS_IP="$(az aro show -n ${TP_CLUSTER_NAME} -g ${TP_RESOURCE_GROUP} --query 'ingressProfiles[0].ip' -o tsv)"
 
-## add wildcard record set for MY Domain (covers admin.${CP_MY_DNS_DOMAIN} and subscription domains)
 az network dns record-set a add-record \
  -g ${TP_DNS_RESOURCE_GROUP} \
  -z ${TP_CLUSTER_DOMAIN} \
  -n "*.${CP_INSTANCE_ID}-my.apps" \
  -a ${INGRESS_IP}
 
-## add wildcard record set for TUNNEL Domain
 az network dns record-set a add-record \
  -g ${TP_DNS_RESOURCE_GROUP} \
  -z ${TP_CLUSTER_DOMAIN} \
  -n "*.${CP_INSTANCE_ID}-tunnel.apps" \
  -a ${INGRESS_IP}
+```
 
+#### Step 4: Verify DNS Resolution
 
-## Verify record sets
-
-**Note:** If `dig` command is not found in Alpine Docker, install it:
 ```bash
-# Install dig in Alpine
+# Install dig if needed (Alpine)
 apk add bind-tools
 
-# Verify installation
-dig --version
-```
-
-**Alternative verification methods if dig is not available:**
-```bash
-# Option 1: Use nslookup (usually pre-installed)
-nslookup admin.${CP_MY_DNS_DOMAIN}
-nslookup test.${CP_TUNNEL_DNS_DOMAIN}
-
-# Option 2: Use curl to test domain resolution
-curl -I --connect-timeout 5 https://admin.${CP_MY_DNS_DOMAIN} 2>/dev/null | head -1
-curl -I --connect-timeout 5 https://test.${CP_TUNNEL_DNS_DOMAIN} 2>/dev/null | head -1
-
-# Option 3: Use getent (if available)
-getent hosts admin.${CP_MY_DNS_DOMAIN}
-getent hosts test.${CP_TUNNEL_DNS_DOMAIN}
-```
-
-**Using dig (after installation):**
-```bash
 dig +short admin.${CP_MY_DNS_DOMAIN}
 dig +short test.${CP_TUNNEL_DNS_DOMAIN}
 ```
@@ -1451,7 +1572,7 @@ The following values configure the unified Control Plane deployment:
 > [!NOTE]
 > All required environment variables are already defined in [Step 7.1: Export Variables](#step-71-export-variables-for-both-control-plane-and-data-plane). Ensure those variables are exported before running the helm commands below.
 
-**Install the unified tibco-cp-base chart (version 1.14.0):**
+**Install the unified tibco-cp-base chart (version 1.16.0):**
 
 For a comprehensive deployment that combines all settings from the legacy `platform-bootstrap` and `platform-base` charts, use the merged values file:
 
@@ -1462,48 +1583,170 @@ curl -o tibco-cp-base-values-merged.yaml https://raw.githubusercontent.com/tibco
 # Install using the merged values file
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
   --version "${CP_TIBCO_CP_BASE_VERSION}" \
   -f tibco-cp-base-values-merged.yaml
 ```
 
-> [!TIP]
-> **About the Merged Values File**: The `tibco-cp-base-values-merged.yaml` file combines:
-> - All bootstrap components (hybrid-proxy, router-operator, resource-set-operator)
-> - All base components (tp-cp-core, tp-cp-integration, tp-cp-hawk, etc.)
-> - Proper resource requests and replica counts from legacy charts
-> - Complete configuration with inline documentation
->
-> **GitHub Reference**: [tibco-cp-base-values-merged.yaml](https://github.com/tibco-bnl/workshop-tp-aro/blob/main/howto/aro-kul/tibco-cp-base-values-merged.yaml)
->
-> You can download it using:
-> ```bash
-> curl -O https://raw.githubusercontent.com/tibco-bnl/workshop-tp-aro/main/howto/aro-kul/tibco-cp-base-values-merged.yaml
-> ```
+**Alternative: Inline values — choose configuration matching your DNS approach:**
 
-**Alternative: Inline values (complete configuration)**
+---
 
-If you prefer to use inline values instead of a separate values file, you can use the following command:
+## ⚙️ Configuration Examples Based on DNS Approach
 
-> [!IMPORTANT]
-> **Critical Database Configuration**: The inline values below include **all required configuration sections** including:
-> - **Database connection details** (`db_host`, `db_name`, `db_port`, `db_secret_name`, `db_ssl_mode`)
-> - **Email server configuration** (for user activation and notifications)
-> - **Admin user configuration** (for initial platform administrator)
-> - **Encryption secret configuration** (for platform security)
-> 
-> If any of these sections are missing (especially the database configuration), the Control Plane deployment will fail with errors like "missing DBHost key in ConfigMap provider-cp-database-config".
+### 🔷 Configuration 1: Simplified DNS Structure (Recommended for v1.16.0)
+
+**Use this if you chose Option 1 (Simplified DNS) in Step 7.1 and Approach 1 in Step 8.2.**
+
+Based on the running instance (`dnsDomain: dp1.atsnl-emea.azure.dataplanes.pro`, specific host entries for `admin` and `ai`):
 
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
   --version "${CP_TIBCO_CP_BASE_VERSION}" -f - <<EOF
+# =========================================
+# SIMPLIFIED DNS CONFIGURATION (v1.16.0)
+# =========================================
+
+# Hybrid-proxy: set enabled: false if not needed (saves resources)
+hybrid-proxy:
+  enabled: ${CP_HYBRID_CONNECTIVITY}
+  ingress:
+    enabled: ${CP_HYBRID_CONNECTIVITY}
+    ingressClassName: ${TP_INGRESS_CLASS}
+    tls:
+      - secretName: ${CP_TLS_SECRET_NAME}
+        hosts:
+          - '${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}'
+    hosts:
+      - host: '${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 105
+
+router-operator:
+  enabled: true
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
+  ingress:
+    enabled: true
+    ingressClassName: ${TP_INGRESS_CLASS}
+    tls:
+      - secretName: ${CP_TLS_SECRET_NAME}
+        hosts:
+          - '${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}'
+          - '${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}'
+    hosts:
+      - host: '${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+      - host: '${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}'
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 100
+
+resource-set-operator:
+  enabled: true
+
+global:
+  tibco:
+    adminHostPrefix: ${CP_ADMIN_HOST_PREFIX}
+    createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
+    containerRegistry:
+      url: ${TP_CONTAINER_REGISTRY_URL}
+      username: ${TP_CONTAINER_REGISTRY_USER}
+      password: ${TP_CONTAINER_REGISTRY_PASSWORD}
+      repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}
+    controlPlaneInstanceId: ${CP_INSTANCE_ID}
+    serviceAccount: ${CP_INSTANCE_ID}-sa
+    hybridConnectivity:
+      enabled: ${CP_HYBRID_CONNECTIVITY}
+  external:
+    clusterInfo:
+      nodeCIDR: ${TP_NODE_CIDR}
+      podCIDR: ${TP_POD_CIDR}
+      serviceCIDR: ${TP_SERVICE_CIDR}
+    dnsDomain: ${TP_BASE_DNS_DOMAIN}
+    dnsTunnelDomain: ${TP_BASE_DNS_DOMAIN}
+    storage:
+      resources:
+        requests:
+          storage: ${CP_STORAGE_SIZE}
+      storageClassName: ${TP_FILE_STORAGE_CLASS}
+    # Database configuration (MANDATORY)
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_username: ${CP_DB_USERNAME}
+    db_password: ${CP_DB_PASSWORD}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+    # Email server configuration (MANDATORY)
+    emailServerType: ${CP_EMAIL_SERVER_TYPE}
+    emailServer:
+      smtp:
+        server: ${CP_EMAIL_SMTP_SERVER}
+        port: ${CP_EMAIL_SMTP_PORT}
+        username: ${CP_EMAIL_SMTP_USERNAME}
+        password: ${CP_EMAIL_SMTP_PASSWORD}
+    # Admin user configuration (MANDATORY)
+    admin:
+      email: ${CP_ADMIN_EMAIL}
+      firstname: ${CP_ADMIN_FIRSTNAME}
+      lastname: ${CP_ADMIN_LASTNAME}
+      customerID: ${CP_ADMIN_CUSTOMER_ID}
+    # Encryption secrets (MANDATORY)
+    cpEncryptionSecretName: cporch-encryption-secret
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
+    # uncomment following section if logging is enabled
+    # logserver:
+    #   endpoint: ${TP_LOGSERVER_ENDPOINT}
+    #   index: ${TP_LOGSERVER_INDEX}
+    #   username: ${TP_LOGSERVER_USERNAME}
+    #   password: ${TP_LOGSERVER_PASSWORD}
+EOF
+```
+
+> [!NOTE]
+> **Simplified DNS Results:**
+> - Admin UI: `https://${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}` (e.g., `https://admin.apps.example.com`)
+> - Subscription: `https://${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}` (e.g., `https://dev.apps.example.com`)
+> - Tunnel (if enabled): `https://${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}`
+
+---
+
+### 🔶 Configuration 2: Legacy Multi-Level DNS Structure (Backward Compatible)
+
+**Use this if you chose Option 2 (Legacy DNS) in Step 7.1 and Approach 2 in Step 8.2.**
+
+> [!IMPORTANT]
+> Requires `WildcardsAllowed` on the ingress controller (Step 7.2) and separate TLS secrets (`custom-my-tls`, `custom-tunnel-tls`).
+
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" -f - <<EOF
+# =========================================
+# LEGACY MULTI-LEVEL DNS CONFIGURATION
+# =========================================
+
 hybrid-proxy:
   enabled: true
   ingress:
     enabled: true
     ingressClassName: ${TP_INGRESS_CLASS}
     tls:
-      - secretName: ${CP_TUNNEL_TLS_SECRET_NAME}
+      - secretName: custom-tunnel-tls
         hosts:
           - '*.${CP_TUNNEL_DNS_DOMAIN}'
     hosts:
@@ -1524,7 +1767,7 @@ router-operator:
     enabled: true
     ingressClassName: ${TP_INGRESS_CLASS}
     tls:
-      - secretName: ${CP_MY_TLS_SECRET_NAME}
+      - secretName: custom-my-tls
         hosts:
           - '*.${CP_MY_DNS_DOMAIN}'
     hosts:
@@ -1535,9 +1778,6 @@ router-operator:
             port: 100
 resource-set-operator:
   enabled: true
-# uncomment to enable logging
-# otel-collector:
-#   enabled: true
 global:
   tibco:
     createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
@@ -1548,6 +1788,8 @@ global:
       repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}
     controlPlaneInstanceId: ${CP_INSTANCE_ID}
     serviceAccount: ${CP_INSTANCE_ID}-sa
+    hybridConnectivity:
+      enabled: true
   external:
     clusterInfo:
       nodeCIDR: ${TP_NODE_CIDR}
@@ -1558,9 +1800,8 @@ global:
     storage:
       resources:
         requests:
-          storage: 10Gi
+          storage: ${CP_STORAGE_SIZE}
       storageClassName: ${TP_FILE_STORAGE_CLASS}
-    # Database configuration
     db_host: ${CP_DB_HOST}
     db_name: ${CP_DB_NAME}
     db_port: ${CP_DB_PORT}
@@ -1568,10 +1809,6 @@ global:
     db_password: ${CP_DB_PASSWORD}
     db_secret_name: ${CP_DB_SECRET_NAME}
     db_ssl_mode: ${CP_DB_SSL_MODE}
-    # Uncomment for SSL/TLS database connections (Azure PostgreSQL)
-    # db_ssl_root_cert_secret_name: ${CP_DB_SSL_ROOT_CERT_SECRET_NAME}
-    # db_ssl_root_cert_filename: ${CP_DB_SSL_ROOT_CERT_FILENAME}
-    # Email server configuration
     emailServerType: ${CP_EMAIL_SERVER_TYPE}
     emailServer:
       smtp:
@@ -1579,16 +1816,13 @@ global:
         port: ${CP_EMAIL_SMTP_PORT}
         username: ${CP_EMAIL_SMTP_USERNAME}
         password: ${CP_EMAIL_SMTP_PASSWORD}
-    # Admin user configuration
     admin:
       email: ${CP_ADMIN_EMAIL}
       firstname: ${CP_ADMIN_FIRSTNAME}
       lastname: ${CP_ADMIN_LASTNAME}
       customerID: ${CP_ADMIN_CUSTOMER_ID}
-    # Encryption secret configuration
     cpEncryptionSecretName: cporch-encryption-secret
     cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
-    # uncomment following section if logging is enabled
     # logserver:
     #   endpoint: ${TP_LOGSERVER_ENDPOINT}
     #   index: ${TP_LOGSERVER_INDEX}
@@ -1596,8 +1830,6 @@ global:
     #   password: ${TP_LOGSERVER_PASSWORD}
 EOF
 ```
-
-> [!TIP]
 > **Verify Database Configuration After Deployment**: After the chart is installed, verify that the database configuration was correctly applied:
 > ```bash
 > # Check if the ConfigMap contains the DBHost key
@@ -1724,7 +1956,7 @@ kubectl get pods -n ${CP_INSTANCE_ID}-ns | grep -E 'bw|flogo|messaging'
 ```
 
 > [!NOTE]
-> **Chart Version Compatibility**: The capability charts should use the **same version** as the `tibco-cp-base` chart. In this guide, we're using `${CP_TIBCO_CP_BASE_VERSION}` which is set to `1.14.0`.
+> **Chart Version Compatibility**: The capability charts should use the **same version** as the `tibco-cp-base` chart. In this guide, we're using `${CP_TIBCO_CP_BASE_VERSION}` which is set to `1.16.0`.
 >
 > **Installation Time**: Each capability chart typically takes 5-10 minutes to install. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
 
@@ -1818,7 +2050,11 @@ echo '"<initialPassword>"' | jq -r .
 
 Once you have the initial password, access the Control Plane:
 
-**Control Plane URL**: `https://admin.${CP_MY_DNS_DOMAIN}`
+**Control Plane URL (Simplified DNS)**: `https://${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}`
+
+Example: `https://admin.apps.nxp.atsnl-emea.azure.dataplanes.pro`
+
+**Control Plane URL (Legacy DNS)**: `https://admin.${CP_MY_DNS_DOMAIN}`
 
 Example: `https://admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
 
@@ -1883,7 +2119,7 @@ kubectl get jobs -n ${CP_INSTANCE_ID}-ns
 After completing the tibco-cp-base installation:
 
 1. **Retrieve initial admin password**: Follow [Step 8.6.1](#861-retrieve-initial-admin-password) to get the temporary password from the job logs
-2. **Access Control Plane UI**: Use the URL `https://admin.${CP_MY_DNS_DOMAIN}` with the admin credentials
+2. **Access Control Plane UI**: Use the URL `https://${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}` (simplified DNS) or `https://admin.${CP_MY_DNS_DOMAIN}` (legacy DNS) with the admin credentials
 3. **First login requirements**: Use "Default IdP" option and complete mandatory password reset
 4. **Platform administration**: After successful login, you can:
    - **Provision subscriptions**: Set up subscriptions for different teams or environments
