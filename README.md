@@ -1,22 +1,34 @@
 # TIBCO Platform on Azure Red Hat OpenShift (ARO) Workshop
 
-> **Current Release:** [v1.16.0](./releases/v1.16.0) | **TIBCO Platform CP Version:** 1.16.0  
+> **Current Release:** [v1.17.0](./releases/v1.17.0) | **TIBCO Platform CP Version:** 1.17.0  
 > 📋 **Release History:** See `releases` folder for all versions  
-> 🔄 **Upgrading from 1.15.0?** See the [1.16.0 Release Notes](./releases/v1.16.0#upgrade-path)
+> 🔄 **Upgrading from 1.16.0?** See the [1.17.0 Release Notes](./releases/v1.17.0#upgrade-path)
 
 This repository provides comprehensive guides and resources for deploying **TIBCO Platform** on **Azure Red Hat OpenShift (ARO)** clusters. It covers multiple deployment scenarios from basic ARO cluster setup to full Control Plane and Data Plane deployments with observability.
 
 ## 🎯 Version Selection
 
-**⚠️ Important:** TIBCO Platform version 1.16.0 includes new features for license management, AI capabilities, and monitoring. Choose the appropriate documentation for your deployment:
+**⚠️ Important:** TIBCO Platform version 1.17.0 includes new features for observability (OpenSearch), webhook alerting, BW6 lifecycle management, and Flogo recipe customization. Choose the appropriate documentation for your deployment:
 
-### 🌟 Version 1.16.0 (Current - Recommended for New Deployments)
+### 🌟 Version 1.17.0 (Current - Recommended for New Deployments)
+- ✅ **Webhook Receiver for Alerts**: Integrate alerts with external systems via JSON webhook
+- ✅ **OpenSearch Observability**: Use OpenSearch for Jaeger traces and service logs
+- ✅ **BW6 Lifecycle Management**: Full Agent, Domain, AppSpace, AppNode, App management in UI
+- ✅ **Fluentbit Customization**: Custom log forwarding config for BW5/BW6 containers and Flogo
+- ✅ **Flogo Recipe Customization**: YAML editor for capability recipes; 3 new connectors
+- ✅ **BW5 Hawk REST API**: 31 Hawk methods exposed on port 8090 in BW5CE
+- ✅ **OpenShift Ready**: Optimized for ARO with updated SCC and Router support
+- 📘 [Setup Guide: CP + DP](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
+- 📘 [Quick Reference (v1.17)](./howto/v1.17/QUICK-REFERENCE)
+- 📋 [Release Notes (v1.17.0)](./releases/v1.17.0)
+
+### 📦 Version 1.16.0 (Previous Release)
 - ✅ **License Management**: Automated 90/30/7 day expiration alerts
 - ✅ **BW6 AI Plugin 6.0.0**: RAG capabilities for AI-powered integrations
 - ✅ **Enhanced Monitoring**: Improved BW5 monitoring and observability
 - ✅ **Flogo Improvements**: Init and sidecar container support
 - ✅ **OpenShift Ready**: Optimized for ARO with enhanced SCC and Router support
-- 📘 [Setup Guide: CP + DP](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
+- 📘 [Setup Guide: CP + DP (v1.16)](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Quick Reference (v1.16)](./howto/v1.16/QUICK-REFERENCE)
 - 📋 [Release Notes (v1.16.0)](./releases/v1.16.0)
 
@@ -37,8 +49,9 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 - 📋 [Release Notes (v1.14.0)](./releases/v1.14.0)
 
 ### 🔄 Upgrading Between Versions
+- **From v1.16.0 → v1.17.0**: Direct upgrade supported. See [1.17.0 Release Notes](./releases/v1.17.0#upgrade-path)
+- **From v1.15.0 → v1.17.0**: Upgrade to v1.16.0 first, then to v1.17.0
 - **From v1.15.0 → v1.16.0**: Direct upgrade supported. See [1.16.0 Release Notes](./releases/v1.16.0#upgrade-path)
-- **From v1.14.0 → v1.16.0**: Upgrade to v1.15.0 first, then to v1.16.0
 - **From v1.14.0 → v1.15.0**: TIBCO provides an automated upgrade script. See [1.15.0 Release Notes](./releases/v1.15.0#upgrade-path)
 
 ---
@@ -58,7 +71,23 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🏗️ Version-Specific Setup Guides
 
-#### Version 1.16.0 (Current Release)
+#### Version 1.17.0 (Current Release)
+**[📖 Quick Reference Guide (v1.17)](./howto/v1.17/QUICK-REFERENCE)**
+- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.17.0 on ARO
+- 🔧 **New Features**: OpenSearch observability, Webhook alerts, BW6 lifecycle management, Flogo recipe customization, Fluentbit custom config
+- ⏱️ **Duration**: Reference guide (instant lookup)
+
+**[📖 Documentation Summary (v1.17)](./howto/v1.17/DOCUMENTATION-SUMMARY)**
+- 🎯 **Scope**: Overview of v1.17.0 updates and changes
+- 🔧 **Features**: OpenSearch integration, ARO-specific considerations, upgrade paths
+- ⏱️ **Duration**: 10-15 minutes read
+
+**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
+- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (latest, includes hardened SCC configuration)
+- 🔧 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, SCC hardening, CP + DP deployment
+- ⏱️ **Duration**: 3-4 hours
+
+#### Version 1.16.0 (Previous Release)
 **[📖 Quick Reference Guide (v1.16)](./howto/v1.16/QUICK-REFERENCE)**
 - 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.16.0 on ARO
 - 🔧 **New Features**: License management, BW6 AI Plugin, enhanced monitoring, Flogo init/sidecar containers
@@ -68,11 +97,6 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - 🎯 **Scope**: Overview of v1.16.0 updates and changes
 - 🔧 **Features**: Container registry updates, ARO-specific considerations, upgrade paths
 - ⏱️ **Duration**: 10-15 minutes read
-
-**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (latest, includes hardened SCC configuration)
-- 🔧 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, SCC hardening, CP + DP deployment
-- ⏱️ **Duration**: 3-4 hours
 
 #### Version 1.15.0 (Previous Release)
 **[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
