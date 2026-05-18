@@ -780,6 +780,7 @@ export CP_ADMIN_EMAIL="${EMAIL}"
 export CP_ADMIN_FIRSTNAME="cp-test"
 export CP_ADMIN_LASTNAME="cp-test"
 export CP_ADMIN_CUSTOMER_ID="nxp-customer-id"
+export CP_ADMIN_INITIAL_PASSWORD=""   # Optional: set a specific initial password; leave empty to auto-generate
 
 # ========================================
 # DATA PLANE SPECIFIC VARIABLES
@@ -1704,6 +1705,9 @@ global:
       firstname: ${CP_ADMIN_FIRSTNAME}
       lastname: ${CP_ADMIN_LASTNAME}
       customerID: ${CP_ADMIN_CUSTOMER_ID}
+    # Optional: set a specific initial password for the admin user.
+    # If left empty, the platform auto-generates one (retrieve from job logs in Step 8.6.1).
+    adminInitialPassword: "${CP_ADMIN_INITIAL_PASSWORD}"
     # Encryption secrets (MANDATORY)
     cpEncryptionSecretName: cporch-encryption-secret
     cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
@@ -1821,6 +1825,9 @@ global:
       firstname: ${CP_ADMIN_FIRSTNAME}
       lastname: ${CP_ADMIN_LASTNAME}
       customerID: ${CP_ADMIN_CUSTOMER_ID}
+    # Optional: set a specific initial password for the admin user.
+    # If left empty, the platform auto-generates one (retrieve from job logs in Step 8.6.1).
+    adminInitialPassword: "${CP_ADMIN_INITIAL_PASSWORD}"
     cpEncryptionSecretName: cporch-encryption-secret
     cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
     # logserver:
