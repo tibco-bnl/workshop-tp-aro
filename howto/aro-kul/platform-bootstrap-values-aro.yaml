@@ -8,8 +8,8 @@ global:
       nodeCIDR: 10.5.2.0/23
       podCIDR: 10.128.0.0/14
       serviceCIDR: 172.30.0.0/16
-    dnsDomain: cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
-    dnsTunnelDomain: cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    dnsDomain: cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro
+    dnsTunnelDomain: cp1-tunnel.apps.abc.atsnl-emea.azure.dataplanes.pro
     storage:
       resources:
         requests:
@@ -39,9 +39,9 @@ hybrid-proxy:
     tls:
       - secretName: custom-tunnel-tls
         hosts:
-          - '*.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+          - '*.cp1-tunnel.apps.abc.atsnl-emea.azure.dataplanes.pro'
     hosts:
-      - host: '*.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+      - host: '*.cp1-tunnel.apps.abc.atsnl-emea.azure.dataplanes.pro'
         paths:
           - path: /
             pathType: Prefix
@@ -68,9 +68,9 @@ router-operator:
     tls:
       - secretName: custom-my-tls
         hosts:
-          - '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+          - '*.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro'
     hosts:
-      - host: '*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro'
+      - host: '*.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro'
         paths:
           - path: /
             pathType: Prefix

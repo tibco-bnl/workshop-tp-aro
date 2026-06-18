@@ -52,7 +52,7 @@ Before you begin, ensure you have:
 ```bash
 # Set these variables according to your deployment
 export TP_DNS_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"           # Resource group containing DNS zone
-export TP_CLUSTER_DOMAIN="nxp.atsnl-emea.azure.dataplanes.pro"  # Your DNS zone name
+export TP_CLUSTER_DOMAIN="abc.atsnl-emea.azure.dataplanes.pro"  # Your DNS zone name
 export TP_CLUSTER_NAME="aroCluster"                              # ARO cluster name
 export TP_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"              # ARO cluster resource group
 
@@ -307,9 +307,9 @@ curl -I https://bnl.${CP_MY_DNS_DOMAIN}
 5. **Test functionality**: Ensure applications load and work as expected
 
 **Expected URLs for TIBCO Platform:**
-- **Email Interface**: `https://mail.nxp.atsnl-emea.azure.dataplanes.pro`
-- **Control Plane Admin**: `https://admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
-- **Subscription Example**: `https://bnl.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
+- **Email Interface**: `https://mail.abc.atsnl-emea.azure.dataplanes.pro`
+- **Control Plane Admin**: `https://admin.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro`
+- **Subscription Example**: `https://bnl.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro`
 
 ---
 
@@ -434,11 +434,11 @@ az network dns record-set a add-record \
 ```
 
 **What these wildcard records cover:**
-- `*.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro` covers:
-  - `admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro` (Admin interface)
-  - `bnl.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro` (Subscription domain)
-  - `<any-subdomain>.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
-- `*.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro` covers all tunnel endpoints
+- `*.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro` covers:
+  - `admin.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro` (Admin interface)
+  - `bnl.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro` (Subscription domain)
+  - `<any-subdomain>.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro`
+- `*.cp1-tunnel.apps.abc.atsnl-emea.azure.dataplanes.pro` covers all tunnel endpoints
 
 ### Data Plane Records
 
@@ -471,7 +471,7 @@ az network dns record-set a add-record \
 **Purpose**: 
 - Provides web interface for viewing emails sent by TIBCO Platform
 - Used for admin user activation and platform notifications
-- Accessible at: `https://mail.nxp.atsnl-emea.azure.dataplanes.pro`
+- Accessible at: `https://mail.abc.atsnl-emea.azure.dataplanes.pro`
 
 ### Monitoring and Observability Records
 

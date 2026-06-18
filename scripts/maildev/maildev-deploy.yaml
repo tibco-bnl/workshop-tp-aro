@@ -64,7 +64,7 @@ metadata:
     app: development-mailserver
     app.cloud.tibco.com/created-by: pipeline
 spec:
-  host: mail.nxp.atsnl-emea.azure.dataplanes.pro
+  host: mail.abc.atsnl-emea.azure.dataplanes.pro
   port:
     targetPort: http
   tls:

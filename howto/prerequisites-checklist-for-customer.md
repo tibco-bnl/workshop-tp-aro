@@ -155,8 +155,8 @@ kubectl get storageclass
 > 
 > The `controlPlaneInstanceId` (e.g., `cp1`) is used as a database name prefix. PostgreSQL identifiers **CANNOT contain hyphens (-)**.
 >
-> **Valid Instance ID examples**: `cp1`, `nxpcp`, `nxp_tibco_cp`, `prod1`  
-> **Invalid examples**: `nxp-tibco-cp` ❌, `my-control-plane` ❌
+> **Valid Instance ID examples**: `cp1`, `abccp`, `abc_tibco_cp`, `prod1`
+> **Invalid examples**: `abc-tibco-cp` ❌, `my-control-plane` ❌
 >
 > **Databases created**: `{instanceId}_tscidmdb`, `{instanceId}_defaultidpdb`, etc.
 
@@ -565,9 +565,9 @@ If network policies are enforced, ensure:
 
 | Parameter | Constraint | Example |
 |-----------|-----------|---------|
-| **Format** | Alphanumeric or underscores only | `cp1`, `nxpcp`, `nxp_tibco_cp` |
+| **Format** | Alphanumeric or underscores only | `cp1`, `abccp`, `abc_tibco_cp` |
 | **Max Length** | 5 characters (recommended) | `cp1`, `prod1` |
-| **Restrictions** | **NO HYPHENS (-)** | ❌ `nxp-cp`, ❌ `my-control-plane` |
+| **Restrictions** | **NO HYPHENS (-)** | ❌ `abc-cp`, ❌ `my-control-plane` |
 | **Purpose** | Database prefix, namespace naming | Creates `cp1_tscidmdb`, `cp1-ns` |
 
 **⚠️ Critical**: Hyphens cause PostgreSQL database creation failures!
@@ -805,8 +805,8 @@ The following identifiers **MUST NOT contain hyphens**:
 - `controlPlaneInstanceId` / `CP_INSTANCE_ID`
 - Any identifier used in database naming
 
-**Valid**: `cp1`, `nxpcp`, `nxp_tibco_cp`  
-**Invalid**: `nxp-tibco-cp`, `my-cp-instance`
+**Valid**: `cp1`, `abccp`, `abc_tibco_cp`
+**Invalid**: `abc-tibco-cp`, `my-cp-instance`
 
 ---
 

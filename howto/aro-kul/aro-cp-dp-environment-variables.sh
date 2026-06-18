@@ -55,7 +55,7 @@ export TP_ENABLE_NETWORK_POLICY="false" # possible values "true", "false"
 echo "Setting DNS and Domain Configuration variables..."
 
 # Domain specific variables
-export TP_CLUSTER_DOMAIN="nxp.atsnl-emea.azure.dataplanes.pro" # replace it with your DNS Zone name
+export TP_CLUSTER_DOMAIN="abc.atsnl-emea.azure.dataplanes.pro" # replace it with your DNS Zone name
 export TP_DNS_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"  # replace with name of resource group containing dns record sets
 export TP_TOP_LEVEL_DOMAIN="${TP_CLUSTER_DOMAIN}" # top level domain of TP_DOMAIN
 export TP_SANDBOX="apps" # hostname of TP_DOMAIN
@@ -147,7 +147,7 @@ export CP_EMAIL_SMTP_PASSWORD=""  # Empty - MailDev doesn't require authenticati
 export CP_ADMIN_EMAIL="${EMAIL}"
 export CP_ADMIN_FIRSTNAME="cp-test"
 export CP_ADMIN_LASTNAME="cp-test"
-export CP_ADMIN_CUSTOMER_ID="nxp-customer-id"
+export CP_ADMIN_CUSTOMER_ID="abc-customer-id"
 
 # ==============================================================================
 # DATA PLANE SPECIFIC VARIABLES

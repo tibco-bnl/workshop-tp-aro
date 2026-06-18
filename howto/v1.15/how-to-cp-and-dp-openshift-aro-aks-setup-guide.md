@@ -551,7 +551,7 @@ export TP_ENABLE_NETWORK_POLICY="false" # possible values "true", "false"
 # DNS AND DOMAIN CONFIGURATION VARIABLES
 # ========================================
 ## Domain specific variables
-export TP_CLUSTER_DOMAIN="nxp.atsnl-emea.azure.dataplanes.pro" # replace it with your DNS Zone name
+export TP_CLUSTER_DOMAIN="abc.atsnl-emea.azure.dataplanes.pro" # replace it with your DNS Zone name
 export TP_DNS_RESOURCE_GROUP="kul-atsbnl-flogo-azfunc"  # replace with name of resource group containing dns record sets
 export TP_TOP_LEVEL_DOMAIN="${TP_CLUSTER_DOMAIN}" # top level domain of TP_DOMAIN
 export TP_SANDBOX="apps" # hostname of TP_DOMAIN
@@ -583,8 +583,8 @@ export TP_INGRESS_CLASS="openshift-default" # name of main ingress class used by
 export CP_INSTANCE_ID="cp1" # unique id to identify multiple cp installation in same cluster (alphanumeric string of max 5 chars)
 # ⚠️ IMPORTANT: CP_INSTANCE_ID must NOT contain hyphens (-) as it is used as database name prefix
 # PostgreSQL database names cannot contain hyphens. Use underscores (_) or alphanumeric only.
-# Valid examples: cp1, nxpcp, nxp_tibco_cp, prod1
-# Invalid examples: nxp-tibco-cp, my-cp, prod-1
+# Valid examples: cp1, abccp, abc_tibco_cp, prod1
+# Invalid examples: abc-tibco-cp, my-cp, prod-1
 export CP_MY_DNS_DOMAIN=${CP_INSTANCE_ID}-my.${TP_DOMAIN} # domain to be used for Control Plane UI
 export CP_TUNNEL_DNS_DOMAIN=${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN} # domain to be used for hybrid connectivity
 export CP_HYBRID_CONNECTIVITY="true"  # Set to "false" if you don't need tunnel connectivity
@@ -701,7 +701,7 @@ export CP_EMAIL_SMTP_PASSWORD=""  # Empty - MailDev doesn't require authenticati
 export CP_ADMIN_EMAIL="${EMAIL}"
 export CP_ADMIN_FIRSTNAME="cp-test"
 export CP_ADMIN_LASTNAME="cp-test"
-export CP_ADMIN_CUSTOMER_ID="nxp-customer-id"
+export CP_ADMIN_CUSTOMER_ID="abc-customer-id"
 
 # ========================================
 # DATA PLANE SPECIFIC VARIABLES
@@ -827,15 +827,15 @@ EOF
 > 
 > The `CP_INSTANCE_ID` is used as a prefix for PostgreSQL database names (e.g., `cp1_tscidmdb`, `cp1_defaultidpdb`). PostgreSQL identifiers **cannot contain hyphens (-)** unless quoted, and TIBCO's database scripts do not quote identifiers.
 > 
-> **Valid CP_INSTANCE_ID examples**: `cp1`, `nxpcp`, `nxp_tibco_cp`, `prod1`  
-> **Invalid examples**: `nxp-tibco-cp` ❌ (contains hyphens), `my-control-plane` ❌
+> **Valid CP_INSTANCE_ID examples**: `cp1`, `abccp`, `abc_tibco_cp`, `prod1`
+> **Invalid examples**: `abc-tibco-cp` ❌ (contains hyphens), `my-control-plane` ❌
 > 
 > If you use hyphens, database creation will fail with errors like:
 > ```
-> ERROR: Failed to create database 'nxp-tibco-cp_defaultidpdb'
+> ERROR: Failed to create database 'abc-tibco-cp_defaultidpdb'
 > ```
 > 
-> **Solution**: Use underscores or remove hyphens: `nxp_tibco_cp` or `nxptibcocp`
+> **Solution**: Use underscores or remove hyphens: `abc_tibco_cp` or `abctibcocp`
 
 **Why this step is needed:** TIBCO Control Plane requires PostgreSQL as its metadata database to store:
 - Platform configuration and metadata
@@ -1047,7 +1047,7 @@ oc get pods -n tibco-ext -l app=development-mailserver
 
 #### Access the MailDev Web Interface
 
-**Web Interface URL**: `https://mail.nxp.atsnl-emea.azure.dataplanes.pro`
+**Web Interface URL**: `https://mail.abc.atsnl-emea.azure.dataplanes.pro`
 
 **What you can do with the email interface:**
 - **View all emails**: See all emails sent by the Control Plane in a convenient web interface
@@ -2106,7 +2106,7 @@ Once you have the initial password, access the Control Plane:
 
 **Control Plane URL**: `https://admin.${CP_MY_DNS_DOMAIN}`
 
-Example: `https://admin.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro`
+Example: `https://admin.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro`
 
 #### 8.6.3: First Login Steps
 
@@ -2138,7 +2138,7 @@ kubectl get jobs -n ${CP_INSTANCE_ID}-ns
 
 **If password reset is needed**:
 - Use the "Forgot Password" link on the login page
-- Check MailDev email interface for reset emails at `https://mail.nxp.atsnl-emea.azure.dataplanes.pro`
+- Check MailDev email interface for reset emails at `https://mail.abc.atsnl-emea.azure.dataplanes.pro`
 - Or contact your platform administrator
 
 > [!IMPORTANT]  
@@ -2382,7 +2382,7 @@ Once the Data Plane is registered and core infrastructure is deployed, you can p
     - **For SaaS:** Navigate to your TIBCO Control Plane SaaS URL and sign in.
     - **For On-Premises:** Navigate to your Control Plane URL (`https://<subdomain>.${CP_MY_DNS_DOMAIN}`) and sign in.
 
-> **Note:** If this is your first time accessing the Control Plane, check the MailDev email interface at `https://mail.nxp.atsnl-emea.azure.dataplanes.pro` for the administrator activation email. Click the activation link in the email to set up your admin account before proceeding.
+> **Note:** If this is your first time accessing the Control Plane, check the MailDev email interface at `https://mail.abc.atsnl-emea.azure.dataplanes.pro` for the administrator activation email. Click the activation link in the email to set up your admin account before proceeding.
 
 2. **Select Your Data Plane:**
     - Go to the "Data Planes" section and select the Data Plane you registered and deployed.
@@ -2416,7 +2416,7 @@ When adding a BWCE capability to the Data Plane, you may encounter certificate-r
 #### The Problem
 If you configure BWCE ingress with a custom FQDN like:
 ```
-bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro
+bwce.apps.abc.atsnl-emea.azure.dataplanes.pro
 ```
 
 The API Documentation and other BWCE services may fail with unauthorized errors because the certificate's Subject Alternative Name (SAN) doesn't match your custom domain.
@@ -2463,7 +2463,7 @@ Where `apps.sicly758.westeurope.aroapp.io` is the DNS domain owned by the ARO cl
 - For production environments, you may want to configure proper custom certificates if custom domains are required
 
 #### Alternative Solutions for Custom Domains
-If you must use custom domains like `bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro`:
+If you must use custom domains like `bwce.apps.abc.atsnl-emea.azure.dataplanes.pro`:
 
 **Complete Custom Domain Setup Process:**
 
@@ -2475,7 +2475,7 @@ If you must use custom domains like `bwce.apps.nxp.atsnl-emea.azure.dataplanes.p
      --email ${EMAIL_FOR_CERTBOT} \
      --server https://acme-v02.api.letsencrypt.org/directory \
      --agree-tos \
-     -d "bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro" \
+     -d "bwce.apps.abc.atsnl-emea.azure.dataplanes.pro" \
      --config-dir "${SCRATCH_DIR}/config" \
      --work-dir "${SCRATCH_DIR}/work" \
      --logs-dir "${SCRATCH_DIR}/logs"
@@ -2485,8 +2485,8 @@ If you must use custom domains like `bwce.apps.nxp.atsnl-emea.azure.dataplanes.p
    ```bash
    oc create secret tls bwce-custom-tls \
      -n ${DP_NAMESPACE} \
-     --cert=$SCRATCH_DIR/config/live/bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro/fullchain.pem \
-     --key=$SCRATCH_DIR/config/live/bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro/privkey.pem
+     --cert=$SCRATCH_DIR/config/live/bwce.apps.abc.atsnl-emea.azure.dataplanes.pro/fullchain.pem \
+     --key=$SCRATCH_DIR/config/live/bwce.apps.abc.atsnl-emea.azure.dataplanes.pro/privkey.pem
    ```
 
 3. **Add custom DNS entry** pointing to the ARO cluster ingress IP:
@@ -2512,7 +2512,7 @@ If you must use custom domains like `bwce.apps.nxp.atsnl-emea.azure.dataplanes.p
      name: bwce-custom-route
      namespace: ${DP_NAMESPACE}
    spec:
-     host: bwce.apps.nxp.atsnl-emea.azure.dataplanes.pro
+     host: bwce.apps.abc.atsnl-emea.azure.dataplanes.pro
      to:
        kind: Service
        name: bwce-service  # Replace with actual BWCE service name
@@ -2894,7 +2894,7 @@ oc get pods -n tibco-ext -l app=development-mailserver
 oc get route maildev-route -n tibco-ext
 
 # Test email server accessibility
-curl -I https://mail.nxp.atsnl-emea.azure.dataplanes.pro
+curl -I https://mail.abc.atsnl-emea.azure.dataplanes.pro
 
 # Check External DNS
 oc get pods -n external-dns-system

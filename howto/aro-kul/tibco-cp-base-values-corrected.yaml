@@ -49,8 +49,8 @@ global:
     # ==================================
     # DNS DOMAINS
     # ==================================
-    dnsDomain: ${CP_MY_DNS_DOMAIN}          # e.g., cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
-    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN} # e.g., cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+    dnsDomain: ${CP_MY_DNS_DOMAIN}          # e.g., cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro
+    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN} # e.g., cp1-tunnel.apps.abc.atsnl-emea.azure.dataplanes.pro
     
     # ==================================
     # STORAGE CONFIGURATION
@@ -266,7 +266,7 @@ hybrid-proxy:
     className: ${TP_INGRESS_CLASS} # e.g., openshift-default
     # annotations: {}  # Uncomment to add custom ingress annotations
     hosts:
-      - host: '*.${CP_TUNNEL_DNS_DOMAIN}' # e.g., *.cp1-tunnel.apps.nxp.atsnl-emea.azure.dataplanes.pro
+      - host: '*.${CP_TUNNEL_DNS_DOMAIN}' # e.g., *.cp1-tunnel.apps.abc.atsnl-emea.azure.dataplanes.pro
         paths:
           - path: /
             pathType: Prefix
@@ -299,7 +299,7 @@ router-operator:
     className: ${TP_INGRESS_CLASS} # e.g., openshift-default
     # annotations: {}  # Uncomment to add custom ingress annotations
     hosts:
-      - host: '*.${CP_MY_DNS_DOMAIN}' # e.g., *.cp1-my.apps.nxp.atsnl-emea.azure.dataplanes.pro
+      - host: '*.${CP_MY_DNS_DOMAIN}' # e.g., *.cp1-my.apps.abc.atsnl-emea.azure.dataplanes.pro
         paths:
           - path: /
             pathType: Prefix

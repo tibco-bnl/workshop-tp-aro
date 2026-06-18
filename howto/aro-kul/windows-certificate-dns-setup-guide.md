@@ -38,7 +38,7 @@ Before proceeding, set up your environment variables. Open **PowerShell as Admin
 ```powershell
 # Set environment variables (replace with your actual values)
 $env:CP_INSTANCE_ID = "cp1"
-$env:TP_CLUSTER_DOMAIN = "nxp.atsnl-emea.azure.dataplanes.pro"
+$env:TP_CLUSTER_DOMAIN = "abc.atsnl-emea.azure.dataplanes.pro"
 $env:TP_SANDBOX = "apps"
 $env:CP_MY_DNS_DOMAIN = "${env:CP_INSTANCE_ID}-my.${env:TP_SANDBOX}.${env:TP_CLUSTER_DOMAIN}"
 $env:CP_TUNNEL_DNS_DOMAIN = "${env:CP_INSTANCE_ID}-tunnel.${env:TP_SANDBOX}.${env:TP_CLUSTER_DOMAIN}"
@@ -56,7 +56,7 @@ Write-Host "CP_TUNNEL_DNS_DOMAIN: $env:CP_TUNNEL_DNS_DOMAIN"
 **To make these permanent** (survive PowerShell session restarts):
 ```powershell
 [System.Environment]::SetEnvironmentVariable('CP_INSTANCE_ID', 'cp1', 'User')
-[System.Environment]::SetEnvironmentVariable('TP_CLUSTER_DOMAIN', 'nxp.atsnl-emea.azure.dataplanes.pro', 'User')
+[System.Environment]::SetEnvironmentVariable('TP_CLUSTER_DOMAIN', 'abc.atsnl-emea.azure.dataplanes.pro', 'User')
 # ... repeat for other variables
 ```
 
@@ -192,7 +192,7 @@ In the Ubuntu (WSL2) terminal:
 ```bash
 # Export environment variables
 export CP_INSTANCE_ID="cp1"
-export TP_CLUSTER_DOMAIN="nxp.atsnl-emea.azure.dataplanes.pro"
+export TP_CLUSTER_DOMAIN="abc.atsnl-emea.azure.dataplanes.pro"
 export TP_SANDBOX="apps"
 export CP_MY_DNS_DOMAIN="${CP_INSTANCE_ID}-my.${TP_SANDBOX}.${TP_CLUSTER_DOMAIN}"
 export CP_TUNNEL_DNS_DOMAIN="${CP_INSTANCE_ID}-tunnel.${TP_SANDBOX}.${TP_CLUSTER_DOMAIN}"
@@ -594,7 +594,7 @@ docker run --rm -it `
 ### PowerShell Environment Variables Setup
 ```powershell
 $env:CP_INSTANCE_ID = "cp1"
-$env:TP_CLUSTER_DOMAIN = "nxp.atsnl-emea.azure.dataplanes.pro"
+$env:TP_CLUSTER_DOMAIN = "abc.atsnl-emea.azure.dataplanes.pro"
 $env:TP_SANDBOX = "apps"
 $env:CP_MY_DNS_DOMAIN = "$env:CP_INSTANCE_ID-my.$env:TP_SANDBOX.$env:TP_CLUSTER_DOMAIN"
 $env:CP_TUNNEL_DNS_DOMAIN = "$env:CP_INSTANCE_ID-tunnel.$env:TP_SANDBOX.$env:TP_CLUSTER_DOMAIN"
