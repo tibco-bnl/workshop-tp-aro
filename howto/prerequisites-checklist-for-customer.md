@@ -292,6 +292,24 @@ Please provide **before installation day**:
 curl -u "username:password" https://<registry-url>/v2/_catalog
 ```
 
+### Custom / Internal Registry (Air-Gapped Environments)
+
+If your cluster cannot reach the TIBCO JFrog registry directly and you are pre-pulling and pushing images to an internal registry, note the following:
+
+> **⚠️ Important**: Do **not** use standard `podman push` or `docker push` to mirror BusinessWorks plugin images. These commands re-compress image layers and corrupt the GZIP headers that the `bwce-utilities` extraction container requires.
+
+Use one of these registry-to-registry copy methods that preserve original layer compression:
+
+| Tool | Command | Best For |
+|------|---------|----------|
+| `docker buildx imagetools create` | Bit-perfect manifest copy | Docker environments |
+| `skopeo copy --format v2s2` | Streams raw blobs between registries | Podman / OpenShift native (recommended) |
+| `oc mirror` | Bulk image sets via `ImageSetConfiguration` | Air-gapped OpenShift |
+
+See the [Troubleshooting Guide — BusinessWorks Plugin Extraction Crash](./troubleshooting#4-businessworks-plugin-extraction-crash--image-layer-corruption) for complete commands, diagnosis steps, and a verification procedure.
+
+- [ ] If using a custom registry: images mirrored using a registry-to-registry tool (not `podman push` / `docker push`)
+
 ---
 
 ## 9. Kubernetes Secrets (Created During Installation)

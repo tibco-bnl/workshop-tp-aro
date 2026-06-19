@@ -217,6 +217,19 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
   - Container registry and Helm chart configurations
 - 📋 **Use Case**: Quick environment setup, variable standardization, deployment automation
 
+### 🔧 Troubleshooting
+
+#### [📖 Troubleshooting Guide](./howto/troubleshooting)
+**Documented deployment issues and verified solutions**
+- 🎯 **Scope**: Real issues encountered during TIBCO Platform deployments on ARO, with root cause analysis and step-by-step fixes
+- 🔧 **Issues Covered**:
+  - **SCC Permission Error**: Pods forbidden on ARO — granting `tp-scc` to service accounts before chart deployment
+  - **Cross-Namespace Crash Loops**: O11y / Flogo Provisioner DNS lookup failures due to wrong namespace suffix in Data Plane values
+  - **Control Plane Proxy Registration Failure**: `BackoffLimitExceeded` in air-gapped environments — missing CA trust stores and image pull secrets
+  - **BusinessWorks Plugin Extraction Crash**: `tar: invalid tar header` caused by image layer re-compression when pushing to a custom registry — use `docker buildx imagetools`, `skopeo copy`, or `oc mirror` instead of standard push
+- 📋 **Use Case**: Diagnosing and resolving deployment failures, air-gapped/custom registry environments, OpenShift SCC issues
+- ⏱️ **Per-issue resolution**: 15–60 minutes
+
 
 ## 🎯 Deployment Scenarios
 
