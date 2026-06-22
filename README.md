@@ -217,6 +217,22 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
   - Container registry and Helm chart configurations
 - 📋 **Use Case**: Quick environment setup, variable standardization, deployment automation
 
+### 🔄 Image Synchronization
+
+#### [📖 How to Push TIBCO Platform Images to a Custom Container Registry](./howto/how-to-sync-images)
+**Mirroring images to a private or air-gapped registry**
+- 🎯 **Scope**: Pre-installation image mirroring for air-gapped, firewalled, or private-registry ARO deployments
+- 🔧 **Features**:
+  - Official TIBCO `sync-images.sh` script usage and configuration
+  - `skopeo copy` — bit-perfect mirroring for Podman / OpenShift environments (recommended)
+  - `docker buildx imagetools` — Docker environment approach
+  - `skopeo dir://` — air-gapped physical data transfer
+  - `oc mirror` — declarative bulk mirroring for OpenShift
+  - Why `podman push` / `docker push` corrupt BusinessWorks plugin images (GZIP BTYPE corruption)
+  - Image integrity verification and remediation runbook
+- 📋 **Use Case**: Air-gapped deployments, corporate firewalled environments, enterprise private registry policies
+- ⏱️ **Duration**: 30-60 minutes (plus image transfer time)
+
 ### 🔧 Troubleshooting
 
 #### [📖 Troubleshooting Guide](./howto/troubleshooting)

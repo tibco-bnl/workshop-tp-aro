@@ -298,17 +298,21 @@ If your cluster cannot reach the TIBCO JFrog registry directly and you are pre-p
 
 > **⚠️ Important**: Do **not** use standard `podman push` or `docker push` to mirror BusinessWorks plugin images. These commands re-compress image layers and corrupt the GZIP headers that the `bwce-utilities` extraction container requires.
 
-Use one of these registry-to-registry copy methods that preserve original layer compression:
+Use the **official TIBCO sync script** or one of these registry-to-registry copy methods that preserve original layer compression:
 
-| Tool | Command | Best For |
-|------|---------|----------|
-| `docker buildx imagetools create` | Bit-perfect manifest copy | Docker environments |
-| `skopeo copy --format v2s2` | Streams raw blobs between registries | Podman / OpenShift native (recommended) |
-| `oc mirror` | Bulk image sets via `ImageSetConfiguration` | Air-gapped OpenShift |
+| Tool | Best For |
+|------|----------|
+| `sync-images.sh` (official TIBCO script) | All images at once — recommended starting point |
+| `skopeo copy --format v2s2` | Podman / OpenShift native (recommended for OCP) |
+| `docker buildx imagetools create` | Docker environments, per-image copy |
+| `oc mirror` | Bulk image sets via `ImageSetConfiguration`, air-gapped OpenShift |
 
-See the [Troubleshooting Guide — BusinessWorks Plugin Extraction Crash](./troubleshooting#4-businessworks-plugin-extraction-crash--image-layer-corruption) for complete commands, diagnosis steps, and a verification procedure.
+📖 **Full guide**: [How to Push TIBCO Platform Images to a Custom Container Registry](./how-to-sync-images) — covers all copy methods, authentication, air-gapped staging, and verification steps.
+
+📖 **Troubleshooting**: [BW Plugin Extraction Crash](./troubleshooting#4-businessworks-plugin-extraction-crash--image-layer-corruption) — diagnosis and remediation if images were already pushed incorrectly.
 
 - [ ] If using a custom registry: images mirrored using a registry-to-registry tool (not `podman push` / `docker push`)
+- [ ] If using a custom registry: image integrity verified using GZIP header inspection (see sync guide)
 
 ---
 
