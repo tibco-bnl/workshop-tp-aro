@@ -150,6 +150,12 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🔍 Shared Documentation (Compatible with Both Versions)
 
+#### [🗺️ Topology Options Guide](./howto/topology-options)
+**Control Plane and Data Plane topology patterns for all environments**
+- 🎯 **Scope**: SaaS CP, self-hosted CP with co-located or separate DP clusters, Control Tower for on-premises TIBCO, DTAP organization, subscription strategies, API Gateway integration, and deployment flavors
+- 📋 **Use Case**: Architecture planning, environment design, and enterprise topology decisions before deployment
+- ⏱️ **Duration**: Reference guide (15-30 minutes read)
+
 ### 🔍 Observability Setup
 
 #### [📖 How to Install Observability for Data Plane](./howto/how-to-dp-openshift-observability)
