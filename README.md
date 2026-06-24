@@ -1,16 +1,27 @@
 # TIBCO Platform on Azure Red Hat OpenShift (ARO) Workshop
 
-> **Current Release:** [v1.17.0](./releases/v1.17.0) | **TIBCO Platform CP Version:** 1.17.0  
+> **Current Release:** [v1.18.0](./releases/v1.18.0) | **TIBCO Platform CP Version:** 1.18.0  
 > 📋 **Release History:** See `releases` folder for all versions  
-> 🔄 **Upgrading from 1.16.0?** See the [1.17.0 Release Notes](./releases/v1.17.0#upgrade-path)
+> 🔄 **Upgrading from 1.17.0?** See the [1.18.0 Release Notes](./releases/v1.18.0#upgrade-path-from-v1170)
 
 This repository provides comprehensive guides and resources for deploying **TIBCO Platform** on **Azure Red Hat OpenShift (ARO)** clusters. It covers multiple deployment scenarios from basic ARO cluster setup to full Control Plane and Data Plane deployments with observability.
 
 ## 🎯 Version Selection
 
-**⚠️ Important:** TIBCO Platform version 1.17.0 includes new features for observability (OpenSearch), webhook alerting, BW6 lifecycle management, and Flogo recipe customization. Choose the appropriate documentation for your deployment:
+**⚠️ Important:** TIBCO Platform version 1.18.0 adds Gateway API controller support, namespace-level RBAC, Console-managed email configuration, and Alert Audit Trail. Choose the appropriate documentation for your deployment:
 
-### 🌟 Version 1.17.0 (Current - Recommended for New Deployments)
+### 🌟 Version 1.18.0 (Current - Recommended for New Deployments)
+- ✅ **Gateway API Controller**: Support for Control Tower data planes; BW5/BW6/Flogo can use `Other` Gateway API type
+- ✅ **Namespace-Level RBAC**: Application Manager and Application Viewer scoped by capability and namespace
+- ✅ **Console-Managed Email**: Email server configuration moves from Helm values to Platform Console UI
+- ✅ **Alert Audit Trail**: System health and rule performance events recorded in the UI
+- ✅ **Developer Hub Self-Service Flows**: Reusable platform automation with customizable templates
+- ✅ **OpenShift Ready**: Optimized for ARO; no breaking SCC changes from 1.17.0
+- 📘 [Setup Overlay Guide: CP + DP (v1.18)](./howto/v1.18/how-to-cp-and-dp-aro-setup-guide)
+- 📘 [Quick Reference (v1.18)](./howto/v1.18/QUICK-REFERENCE)
+- 📋 [Release Notes (v1.18.0)](./releases/v1.18.0)
+
+### 📦 Version 1.17.0 (Previous Release)
 - ✅ **Webhook Receiver for Alerts**: Integrate alerts with external systems via JSON webhook
 - ✅ **OpenSearch Observability**: Use OpenSearch for Jaeger traces and service logs
 - ✅ **BW6 Lifecycle Management**: Full Agent, Domain, AppSpace, AppNode, App management in UI
@@ -49,6 +60,7 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 - 📋 [Release Notes (v1.14.0)](./releases/v1.14.0)
 
 ### 🔄 Upgrading Between Versions
+- **From v1.17.0 → v1.18.0**: Direct upgrade supported. See [1.18.0 Release Notes](./releases/v1.18.0#upgrade-path-from-v1170)
 - **From v1.16.0 → v1.17.0**: Direct upgrade supported. See [1.17.0 Release Notes](./releases/v1.17.0#upgrade-path)
 - **From v1.15.0 → v1.17.0**: Upgrade to v1.16.0 first, then to v1.17.0
 - **From v1.15.0 → v1.16.0**: Direct upgrade supported. See [1.16.0 Release Notes](./releases/v1.16.0#upgrade-path)
@@ -71,7 +83,23 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🏗️ Version-Specific Setup Guides
 
-#### Version 1.17.0 (Current Release)
+#### Version 1.18.0 (Current Release)
+**[📖 Setup Overlay Guide: CP + DP (v1.18)](./howto/v1.18/how-to-cp-and-dp-aro-setup-guide)**
+- 🎯 **Scope**: 1.18.0-specific changes to apply on top of the shared ARO baseline guide
+- 🔧 **New Features**: Gateway API controller, namespace-level RBAC, Console-managed email, Alert Audit Trail, Developer Hub self-service flows
+- ⏱️ **Duration**: 30-60 minutes (overlay on top of shared guide)
+
+**[📖 Quick Reference Guide (v1.18)](./howto/v1.18/QUICK-REFERENCE)**
+- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.18.0 on ARO
+- 🔧 **New Features**: Gateway API checks, namespace RBAC checks, email Console configuration, SCC verification, Alert Audit Trail
+- ⏱️ **Duration**: Reference guide (instant lookup)
+
+**[📖 Documentation Summary (v1.18)](./howto/v1.18/DOCUMENTATION-SUMMARY)**
+- 🎯 **Scope**: Overview of v1.18.0 updates and changes for ARO
+- 🔧 **Features**: ARO-specific update details, component version comparison, updated files list, validation checklist
+- ⏱️ **Duration**: 10-15 minutes read
+
+#### Version 1.17.0 (Previous Release)
 **[📖 Quick Reference Guide (v1.17)](./howto/v1.17/QUICK-REFERENCE)**
 - 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.17.0 on ARO
 - 🔧 **New Features**: OpenSearch observability, Webhook alerts, BW6 lifecycle management, Flogo recipe customization, Fluentbit custom config
@@ -83,7 +111,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - ⏱️ **Duration**: 10-15 minutes read
 
 **[📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (latest, includes hardened SCC configuration)
+- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (shared baseline, includes hardened SCC configuration)
 - 🔧 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, SCC hardening, CP + DP deployment
 - ⏱️ **Duration**: 3-4 hours
 

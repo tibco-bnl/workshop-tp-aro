@@ -103,7 +103,7 @@ export CP_MY_DNS_DOMAIN="${CP_INSTANCE_ID}-my.${TP_DOMAIN}"       # Domain for C
 export CP_TUNNEL_DNS_DOMAIN="${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}" # Domain for hybrid connectivity
 
 # Control Plane chart versions (unified chart since 1.13.0)
-export CP_TIBCO_CP_BASE_VERSION="1.14.0"
+export CP_TIBCO_CP_BASE_VERSION="1.18.0"
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # Storage size for Control Plane components
@@ -134,8 +134,12 @@ export CP_DB_USERNAME="postgres"
 # export CP_DB_SSL_ROOT_CERT_FILENAME="db_ssl_root.cert"
 
 # Email server configuration variables
+# NOTE (1.18.0+): Email provider is configured from the TIBCO Platform Console UI after installation.
+# Do NOT pass emailServerType, emailServer, fromAndReplyToEmailAddress, or related values
+# to tibco-cp-base Helm values in 1.18.0 — they are deprecated and removed by the upgrade assistant.
+# Keep MailDev running if used for workshop SMTP testing; configure its host/port in the Console.
 export CP_EMAIL_SERVER_TYPE="smtp"
-export CP_EMAIL_SMTP_SERVER="development-mailserver.tibco-ext.svc.cluster.local" # MailDev server
+export CP_EMAIL_SMTP_SERVER="development-mailserver.tibco-ext.svc.cluster.local" # MailDev server (configure from Console in 1.18.0)
 export CP_EMAIL_SMTP_PORT="1025"
 export CP_EMAIL_SMTP_USERNAME="" # Empty - MailDev doesn't require authentication
 export CP_EMAIL_SMTP_PASSWORD="" # Empty - MailDev doesn't require authentication
