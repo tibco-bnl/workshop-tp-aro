@@ -1691,14 +1691,17 @@ global:
     db_password: ${CP_DB_PASSWORD}
     db_secret_name: ${CP_DB_SECRET_NAME}
     db_ssl_mode: ${CP_DB_SSL_MODE}
-    # Email server configuration (MANDATORY)
-    emailServerType: ${CP_EMAIL_SERVER_TYPE}
-    emailServer:
-      smtp:
-        server: ${CP_EMAIL_SMTP_SERVER}
-        port: ${CP_EMAIL_SMTP_PORT}
-        username: ${CP_EMAIL_SMTP_USERNAME}
-        password: ${CP_EMAIL_SMTP_PASSWORD}
+    # Email server configuration — DEPRECATED in 1.18.0
+    # As of TIBCO Platform 1.18.0, email provider settings are configured from
+    # the TIBCO Platform Console UI, not Helm values. Remove these fields if upgrading.
+    # Configure SMTP/SES/MailDev from: Platform Console → Administration → Email Server
+    # emailServerType: ${CP_EMAIL_SERVER_TYPE}
+    # emailServer:
+    #   smtp:
+    #     server: ${CP_EMAIL_SMTP_SERVER}
+    #     port: ${CP_EMAIL_SMTP_PORT}
+    #     username: ${CP_EMAIL_SMTP_USERNAME}
+    #     password: ${CP_EMAIL_SMTP_PASSWORD}
     # Admin user configuration (MANDATORY)
     admin:
       email: ${CP_ADMIN_EMAIL}
@@ -1813,13 +1816,17 @@ global:
     db_password: ${CP_DB_PASSWORD}
     db_secret_name: ${CP_DB_SECRET_NAME}
     db_ssl_mode: ${CP_DB_SSL_MODE}
-    emailServerType: ${CP_EMAIL_SERVER_TYPE}
-    emailServer:
-      smtp:
-        server: ${CP_EMAIL_SMTP_SERVER}
-        port: ${CP_EMAIL_SMTP_PORT}
-        username: ${CP_EMAIL_SMTP_USERNAME}
-        password: ${CP_EMAIL_SMTP_PASSWORD}
+    # Email server configuration — DEPRECATED in 1.18.0
+    # As of TIBCO Platform 1.18.0, email provider settings are configured from
+    # the TIBCO Platform Console UI, not Helm values. Remove these fields if upgrading.
+    # Configure SMTP/SES/MailDev from: Platform Console → Administration → Email Server
+    # emailServerType: ${CP_EMAIL_SERVER_TYPE}
+    # emailServer:
+    #   smtp:
+    #     server: ${CP_EMAIL_SMTP_SERVER}
+    #     port: ${CP_EMAIL_SMTP_PORT}
+    #     username: ${CP_EMAIL_SMTP_USERNAME}
+    #     password: ${CP_EMAIL_SMTP_PASSWORD}
     admin:
       email: ${CP_ADMIN_EMAIL}
       firstname: ${CP_ADMIN_FIRSTNAME}
