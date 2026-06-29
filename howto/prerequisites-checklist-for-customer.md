@@ -9,7 +9,7 @@ title: TIBCO Platform - Customer Prerequisites Checklist
 
 **Target Audience**: Customer IT teams responsible for infrastructure preparation
 
-**Last Updated**: January 19, 2026
+**Last Updated**: June 2026
 
 ---
 
@@ -18,6 +18,14 @@ title: TIBCO Platform - Customer Prerequisites Checklist
 Before TIBCO implementation team arrives on-site or begins remote installation, please ensure all prerequisites listed in this document are met. This preparation is critical for a successful and timely deployment.
 
 **Estimated Preparation Time**: 3-5 business days (depending on organizational processes)
+
+> **Quick Reference**: Sections 1–8 cover **infrastructure** prerequisites. Section 9 covers **TIBCO Platform Control Plane** specific prerequisites (Kubernetes secrets that must be pre-created). Sections 10–16 cover platform configuration and RBAC requirements.
+
+---
+
+## Infrastructure Prerequisites
+
+The following sections (1–8) describe the Kubernetes/OpenShift infrastructure that must be provisioned before TIBCO Platform installation begins.
 
 ---
 
@@ -316,9 +324,32 @@ Use the **official TIBCO sync script** or one of these registry-to-registry copy
 
 ---
 
-## 9. Kubernetes Secrets (Created During Installation)
+## TIBCO Platform Control Plane Prerequisites
 
-The following Kubernetes secrets will be created during the TIBCO Platform installation. Ensure you have the necessary permissions and information ready.
+The following section (9) covers prerequisites specific to TIBCO Platform Control Plane installation. These secrets must be created in the Control Plane namespace **before** running `helm install tibco-cp-base`.
+
+---
+
+## 9. Kubernetes Secrets (Pre-create Before CP Deployment)
+
+The following Kubernetes secrets must be pre-created in the Control Plane namespace (`${CP_INSTANCE_ID}-ns`) **before** deploying the `tibco-cp-base` Helm chart. The chart expects them to exist at startup.
+
+> **Important**: Store all generated secret values in a secure vault (e.g., Azure Key Vault or HashiCorp Vault). These secrets are required for disaster recovery and upgrades. Changing `session-keys` or `cporch-encryption-secret` after initial deployment will break the running Control Plane.
+
+### 0. CP Namespace and Service Account
+
+Before creating secrets, ensure the CP namespace exists:
+
+```bash
+export CP_INSTANCE_ID="cp1"
+
+kubectl create namespace ${CP_INSTANCE_ID}-ns
+kubectl label namespace ${CP_INSTANCE_ID}-ns \
+  platform.tibco.com/controlplane-instance-id=${CP_INSTANCE_ID}
+kubectl create serviceaccount ${CP_INSTANCE_ID}-sa -n ${CP_INSTANCE_ID}-ns
+```
+
+> **OpenShift note**: Use `oc new-project ${CP_INSTANCE_ID}-ns` instead of `kubectl create namespace` if using the OpenShift CLI. The label can be applied with `oc label ns ${CP_INSTANCE_ID}-ns platform.tibco.com/controlplane-instance-id=${CP_INSTANCE_ID}`.
 
 ### Control Plane Secrets
 
@@ -348,7 +379,7 @@ kubectl create secret docker-registry tibco-container-registry-credentials \
 
 **Secret Name**: `session-keys`  
 **Namespace**: `{instanceId}-ns` (Control Plane namespace)  
-**Purpose**: Session encryption keys required by router pods and web-server components
+**Purpose**: Cryptographic keys used by router pods to sign and verify user session tokens
 
 **Creation Command**:
 ```bash
@@ -357,16 +388,16 @@ export TSC_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
 export DOMAIN_SESSION_KEY=$(openssl rand -base64 48 | tr -dc A-Za-z0-9 | head -c32)
 
 # Create secret
-kubectl create secret generic session-keys -n <CP_INSTANCE_ID>-ns \
+kubectl create secret generic session-keys -n ${CP_INSTANCE_ID}-ns \
   --from-literal=TSC_SESSION_KEY=${TSC_SESSION_KEY} \
   --from-literal=DOMAIN_SESSION_KEY=${DOMAIN_SESSION_KEY}
 ```
 
 **Keys**:
-- `TSC_SESSION_KEY`: 32-character alphanumeric string
-- `DOMAIN_SESSION_KEY`: 32-character alphanumeric string
+- `TSC_SESSION_KEY`: Signs tokens for the TSC (TIBCO Subscription Console) domain
+- `DOMAIN_SESSION_KEY`: Signs tokens for custom domain routing
 
-> **⚠️ Important**: This secret is mandatory. Router pods will fail to start if this secret is missing.
+> **⚠️ Important**: This secret is **mandatory** — router pods will fail to start if it is missing. **These keys must remain stable across upgrades**: changing them invalidates all active user sessions immediately.
 
 #### 3. Database Credentials Secret (Optional - Auto-Created)
 
@@ -431,21 +462,20 @@ kubectl create secret tls tp-certificate-tunnel \
 - Certificate file (PEM format)
 - Private key file (PEM format)
 
-#### 6. Encryption Secret
+#### 6. Encryption Secret (Required)
 
 **Secret Name**: `cporch-encryption-secret`  
 **Namespace**: `{instanceId}-ns` (Control Plane namespace)  
-**Purpose**: Encryption key for orchestrator component
+**Purpose**: Encryption key for the CP Orchestrator service; used to encrypt sensitive data written to the database — including Data Plane connection strings, external service credentials, and API keys
 
 **Creation Command**:
 ```bash
-# Generate random encryption key
-export ENCRYPTION_KEY=$(openssl rand -base64 32)
-
-# Create secret
-kubectl create secret generic cporch-encryption-secret -n <CP_INSTANCE_ID>-ns \
-  --from-literal=ENCRYPTION_KEY=${ENCRYPTION_KEY}
+# Generate random encryption key — the key MUST be named CP_ENCRYPTION_SECRET
+kubectl create secret generic cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns \
+  --from-literal=CP_ENCRYPTION_SECRET=$(openssl rand -base64 32)
 ```
+
+> **⚠️ Important**: The secret key **must** be named `CP_ENCRYPTION_SECRET` (not `ENCRYPTION_KEY`). **This key must never change after initial deployment**: if it changes, the orchestrator cannot decrypt previously stored data and the Control Plane will fail to connect to registered Data Planes.
 
 #### 7. SMTP Credentials Secret (Optional)
 
@@ -732,6 +762,17 @@ Please complete this checklist and return to TIBCO implementation team **at leas
 - [ ] Container registry credentials received from TIBCO
 - [ ] Container registry access tested and verified
 
+### TIBCO Platform Control Plane Secrets
+
+- [ ] CP namespace (`${CP_INSTANCE_ID}-ns`) created with the correct label
+- [ ] CP service account (`${CP_INSTANCE_ID}-sa`) created in CP namespace
+- [ ] `session-keys` Kubernetes secret created in CP namespace
+- [ ] `cporch-encryption-secret` Kubernetes secret created in CP namespace (key: `CP_ENCRYPTION_SECRET`)
+- [ ] `session-keys` and `cporch-encryption-secret` values saved to a secure vault (Azure Key Vault, HashiCorp Vault, or equivalent)
+- [ ] `db-ssl-root-cert` secret created (when using SSL to PostgreSQL; key must be `db_ssl_root.cert`)
+- [ ] TLS certificate secrets created for ingress (`cp-tls-cert` for simplified DNS, or separate `custom-my-tls` / `custom-tunnel-tls` for legacy split DNS)
+- [ ] OpenSSL installed on installation machine (for generating keys)
+
 ### Secrets Preparation
 
 - [ ] Container registry credentials (URL, username, password) ready
@@ -739,7 +780,6 @@ Please complete this checklist and return to TIBCO implementation team **at leas
 - [ ] TLS certificate and key files prepared for ingress
 - [ ] Database SSL certificate ready (if using managed PostgreSQL)
 - [ ] SMTP credentials ready (if using email notifications)
-- [ ] OpenSSL installed on installation machine (for generating session/encryption keys)
 
 ### Access and Permissions
 
@@ -833,5 +873,5 @@ The following identifiers **MUST NOT contain hyphens**:
 ---
 
 **Document Version**: 1.0  
-**Last Updated**: January 19, 2026  
+**Last Updated**: June 2026  
 **Next Review**: Before each customer engagement
