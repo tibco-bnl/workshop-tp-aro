@@ -61,6 +61,13 @@ export TP_SANDBOX="apps"                                       # Hostname prefix
 export TP_DOMAIN="${TP_SANDBOX}.${TP_TOP_LEVEL_DOMAIN}"       # Full domain to be used
 export TP_INGRESS_CLASS="openshift-default"                    # Main ingress class for capabilities
 
+# Gateway API (optional — set TP_GATEWAY_API_ENABLED="true" to use HTTPRoute instead of Ingress)
+# Requires NGINX Gateway Fabric or another Gateway API controller installed in the cluster.
+export TP_GATEWAY_API_ENABLED="false"         # Set "true" to activate Gateway API routing
+export TP_GATEWAY_NAME="tp-ngf-gateway"       # Gateway resource name (created during NGF setup)
+export TP_GATEWAY_NAMESPACE="ingress-system"  # Namespace where the Gateway resource lives
+export TP_GATEWAY_CLASS="nginx"               # GatewayClass name; NGINX Gateway Fabric uses "nginx"
+
 # ========================================
 # STORAGE CONFIGURATION VARIABLES
 # ========================================

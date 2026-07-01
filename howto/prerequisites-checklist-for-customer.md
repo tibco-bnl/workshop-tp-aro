@@ -19,7 +19,7 @@ Before TIBCO implementation team arrives on-site or begins remote installation, 
 
 **Estimated Preparation Time**: 3-5 business days (depending on organizational processes)
 
-> **Quick Reference**: Sections 1–8 cover **infrastructure** prerequisites. Section 9 covers **TIBCO Platform Control Plane** specific prerequisites (Kubernetes secrets that must be pre-created). Sections 10–16 cover platform configuration and RBAC requirements.
+> **Quick Reference**: Sections 1–8 cover **infrastructure** prerequisites. Sections 9–10 cover **TIBCO Platform Control Plane** specific prerequisites (Kubernetes secrets and optional items). Sections 11–17 cover RBAC, capacity, and configuration requirements.
 
 ---
 
@@ -546,7 +546,107 @@ rules:
 
 ---
 
-## 10. RBAC and Permissions
+## 10. Optional Prerequisites
+
+The following are not required for all deployments but apply in specific customer environments. Review each subsection and prepare the relevant items before installation.
+
+### 10.1 Custom / Private Helm Chart Repository
+
+**When this applies:** If the cluster cannot reach `https://tibcosoftware.github.io/tp-helm-charts` or other public chart repositories (air-gapped, restricted-egress, or policy-enforced environments), mirror the required Helm charts to an internal repository such as JFrog Artifactory, Sonatype Nexus, or Red Hat Quay before installation.
+
+**Charts to mirror:**
+
+| Chart | Default Source Repo | Purpose |
+|-------|--------------------|---------| 
+| `tibco-cp-base` | `https://tibcosoftware.github.io/tp-helm-charts` | Control Plane deployment |
+| `dp-config-aks` | `https://tibcosoftware.github.io/tp-helm-charts` | Data Plane infrastructure and ingress |
+| `dp-core-infrastructure` | `https://tibcosoftware.github.io/tp-helm-charts` | Data Plane core components |
+| `dp-configure-namespace` | `https://tibcosoftware.github.io/tp-helm-charts` | Data Plane namespace configuration |
+| `dp-config-es` | `https://tibcosoftware.github.io/tp-helm-charts` | Elasticsearch / Kibana / APM |
+| `cert-manager` | `https://charts.jetstack.io` | Certificate management (if not using OpenShift cert-manager) |
+| `kube-prometheus-stack` | `https://prometheus-community.github.io/helm-charts` | Prometheus and Grafana |
+| `eck-operator` | `https://helm.elastic.co` | ECK operator for Elasticsearch |
+| `traefik` | `https://tibcosoftware.github.io/tp-helm-charts` (via `dp-config-aks`) | Ingress controller |
+
+> **OpenShift note:** OpenShift OperatorHub provides its own ECK, Prometheus, and cert-manager operators. If using OperatorHub-managed operators, those charts do not need to be mirrored. Only mirror the charts you are installing via Helm.
+
+**Information to gather before installation:**
+
+- [ ] Internal Helm repository URL: `_______________________`
+- [ ] Authentication credentials for the chart repo (username / token)
+- [ ] All required charts and versions confirmed mirrored (match versions in setup guide exactly)
+- [ ] Helm CLI configured: `helm repo add <name> <internal-url> --username <user> --password <token>`
+
+> **Version pinning:** Mirror the exact chart versions listed in the setup guide. Do not rely on `latest` tags.
+
+### 10.2 Non-Well-Known CA Certificates for Data Plane Ingress Registration
+
+**When this applies:** If the Data Plane ingress TLS certificate is signed by an **internal or private Certificate Authority** (not a public CA such as Let's Encrypt, DigiCert, or Comodo), the TIBCO Control Plane cannot trust the Data Plane's HTTPS endpoint without being explicitly told about the CA.
+
+**Background:** During Data Plane registration, the provisioner agent must be able to make a verified HTTPS connection to the Control Plane, and the Control Plane must trust the Data Plane ingress endpoint for health checks and capability provisioning. On ARO, the OpenShift router uses its own auto-generated wildcard certificate by default — this certificate is signed by the cluster's internal CA, which is **not** publicly trusted, and therefore requires the CA certificate to be provided during Data Plane registration.
+
+**Registration field:** During Data Plane registration in the Control Plane UI (**Settings → Infrastructure → Data Planes → Register Data Plane**), the wizard includes a **TLS Certificate / CA Bundle** field. This field is required when the Data Plane ingress uses a non-public CA certificate.
+
+**What to prepare:**
+
+| Certificate Type | CA Cert Required? | What to Provide |
+|------------------|-------------------|-----------------|
+| Public CA (Let's Encrypt, DigiCert, etc.) | No | Nothing extra needed |
+| Internal PKI / Corporate CA | **Yes** | PEM-encoded CA certificate from your internal PKI chain |
+| OpenShift default wildcard cert (internal CA) | **Yes** | OpenShift cluster ingress CA certificate |
+| Self-signed certificate | **Yes** | The self-signed certificate itself (it is its own CA) |
+
+**Extract the OpenShift ingress CA certificate (if using the default OpenShift router cert):**
+
+```bash
+# Extract the OpenShift ingress CA certificate
+oc get secret router-ca -n openshift-ingress-operator \
+  -o jsonpath='{.data.tls\.crt}' | base64 -d > openshift-ingress-ca.pem
+
+# Verify the certificate
+openssl x509 -in openshift-ingress-ca.pem -text -noout | grep -E "Subject:|Issuer:|Not After"
+```
+
+- [ ] Identify whether your Data Plane ingress TLS certificate uses a public or private CA
+- [ ] If private CA: obtain the **PEM-encoded CA certificate** (starts with `-----BEGIN CERTIFICATE-----`)
+  - For OpenShift default router: extract from `router-ca` secret as shown above
+  - For internal PKI: get the intermediate or root CA cert from your PKI team
+  - For self-signed: use the self-signed certificate file itself
+- [ ] Confirm the cert is accessible on the installation machine at registration time
+
+> **Reference:** [Registering a Data Plane — TIBCO Platform Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/registering-a-data-plane.htm)
+
+**Impact if omitted when using private CA:**
+- The provisioner agent cannot establish a verified connection to the Control Plane
+- Capability provisioning (BWCE, Flogo, EMS) fails with TLS errors
+- Data Plane shows as disconnected in the Control Plane UI
+
+### 10.3 PostgreSQL SSL Certificate
+
+If the Control Plane must connect to PostgreSQL using SSL (`db_ssl_mode` = `require` or `verify-full`), the CA certificate must be available to create the `db-ssl-root-cert` Kubernetes secret (see Section 9 — Database SSL Certificate Secret). The secret key **must** be named `db_ssl_root.cert` (with a dot).
+
+| SSL Mode | Certificate Needed | Notes |
+|----------|-------------------|-------|
+| `disable` | No | Development only |
+| `require` | No | Encrypts connection without certificate verification |
+| `verify-full` | **Yes** | Obtain from your PostgreSQL DBA or provider |
+
+- [ ] PostgreSQL SSL CA certificate obtained from DBA (if using `verify-full` mode)
+- [ ] `db_ssl_mode` value decided (`disable`, `require`, or `verify-full`)
+
+### 10.4 Custom Container Registry
+
+If using a private container registry instead of the TIBCO JFrog registry (see Section 8 for the full mirroring guide), additionally confirm:
+
+- [ ] Registry URL, repository path, and credentials available (`TP_CONTAINER_REGISTRY_URL`, `TP_CONTAINER_REGISTRY_USER`, `TP_CONTAINER_REGISTRY_PASSWORD`)
+- [ ] `TP_CONTAINER_REGISTRY_REPOSITORY` set to the correct path within the private registry
+- [ ] Images mirrored using a bit-perfect method (see Section 8 — do not use plain `docker push` or `podman push`)
+- [ ] For Red Hat Quay: organization and repository created; robot account with pull access configured
+- [ ] OpenShift global pull secret updated if registry requires authentication at node level
+
+---
+
+## 11. RBAC and Permissions
 
 ### Kubernetes/OpenShift Permissions Required
 
@@ -573,7 +673,7 @@ rules:
 
 ---
 
-## 11. Resource Quotas and Limits
+## 12. Resource Quotas and Limits
 
 ### Ensure No Restrictive Quotas
 
@@ -597,7 +697,7 @@ kubectl get resourcequota -n <namespace>
 
 ---
 
-## 12. Network Policies
+## 13. Network Policies
 
 ### Ensure Network Policies Allow Required Traffic
 
@@ -611,7 +711,7 @@ If network policies are enforced, ensure:
 
 ---
 
-## 13. Naming Conventions and Instance Identification
+## 14. Naming Conventions and Instance Identification
 
 ### Control Plane Instance ID
 
@@ -634,7 +734,7 @@ If network policies are enforced, ensure:
 
 ---
 
-## 14. Email Server Configuration (Optional but Recommended)
+## 15. Email Server Configuration (Optional but Recommended)
 
 For Control Plane notification emails (user invitations, password resets, etc.):
 
@@ -650,7 +750,7 @@ For Control Plane notification emails (user invitations, password resets, etc.):
 
 ---
 
-## 15. Browser Requirements (Control Plane UI Access)
+## 16. Browser Requirements (Control Plane UI Access)
 
 ### Supported Browsers
 
@@ -665,7 +765,7 @@ For accessing TIBCO Control Plane UI, current versions of the following browsers
 
 ---
 
-## 16. Ingress Controller
+## 17. Ingress Controller
 
 ### Supported Ingress Controllers
 
@@ -761,6 +861,13 @@ Please complete this checklist and return to TIBCO implementation team **at leas
 - [ ] Private keys securely stored and accessible
 - [ ] Container registry credentials received from TIBCO
 - [ ] Container registry access tested and verified
+
+### Optional Items (complete if applicable)
+
+- [ ] Internal Helm repo configured if cluster cannot reach public chart repos (see Section 10.1)
+- [ ] Private CA certificate for Data Plane ingress obtained (see Section 10.2); for ARO default router cert, extracted from `router-ca` secret in `openshift-ingress-operator` namespace
+- [ ] PostgreSQL SSL CA certificate obtained from DBA if using `verify-full` SSL mode (see Section 10.3)
+- [ ] Custom container registry confirmed with bit-perfect image copy; OpenShift global pull secret updated if needed (see Section 10.4)
 
 ### TIBCO Platform Control Plane Secrets
 

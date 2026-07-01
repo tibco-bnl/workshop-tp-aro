@@ -1857,6 +1857,77 @@ EOF
 
 > [!NOTE]
 > The installation may take 15-30 minutes to complete. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
+
+---
+
+### Configuration 3: Gateway API (HTTPRoutes instead of Ingress)
+
+> [!NOTE]
+> **When to use this:** Choose the Gateway API path if you have NGINX Gateway Fabric (or another Gateway API controller) installed and want `HTTPRoute` resources instead of classic `Ingress` objects for hybrid-proxy and router-operator. The global section (database, admin user, storage, etc.) remains the same as Configuration 1 or 2 — create a second override file and pass both files to `helm upgrade`.
+
+Set the gateway env vars (already added to `aks-aro-openshift-env-variables.sh`):
+
+```bash
+echo "TP_GATEWAY_NAME=${TP_GATEWAY_NAME}"           # e.g. tp-ngf-gateway
+echo "TP_GATEWAY_NAMESPACE=${TP_GATEWAY_NAMESPACE}" # e.g. ingress-system
+echo "TP_GATEWAY_CLASS=${TP_GATEWAY_CLASS}"         # e.g. nginx
+```
+
+Create the Gateway API override file and apply it on top of your base values:
+
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f cp-values.yaml \
+  -f - <<EOF
+# =========================================
+# GATEWAY API CONFIGURATION
+# =========================================
+
+hybrid-proxy:
+  enabled: true
+  gatewayRoute:
+    enabled: true
+    controllerName: ${TP_GATEWAY_CLASS}
+    hostnames:
+    - '${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}'  # Dedicated tunnel back-channel
+    parentRefs:
+    - name: ${TP_GATEWAY_NAME}
+      namespace: ${TP_GATEWAY_NAMESPACE}
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: '*.${TP_BASE_DNS_DOMAIN}'
+
+otel-collector:
+  enabled: true
+
+router-operator:
+  gatewayRoute:
+    enabled: true
+    controllerName: ${TP_GATEWAY_CLASS}
+    hostnames:
+    - '*.${TP_BASE_DNS_DOMAIN}'  # Wildcard captures all current and future subscriptions
+    parentRefs:
+    - name: ${TP_GATEWAY_NAME}
+      namespace: ${TP_GATEWAY_NAMESPACE}
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: '*.${TP_BASE_DNS_DOMAIN}'
+EOF
+```
+
+Verify the generated HTTPRoutes:
+
+```bash
+kubectl get httproute -n ${CP_INSTANCE_ID}-ns
+kubectl describe httproute -n ${CP_INSTANCE_ID}-ns
+```
+
+> [!TIP]
+> The `*.${TP_BASE_DNS_DOMAIN}` wildcard hostname on `router-operator` captures admin, subscription, and any future portal hostnames without requiring individual entries. The `hybrid-proxy` uses an explicit `${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}` hostname so the tunnel back-channel stays isolated from the wildcard.
+
+---
+
 ### Step 8.5: Verify Helm Chart Deployment
 
 > [!NOTE]
