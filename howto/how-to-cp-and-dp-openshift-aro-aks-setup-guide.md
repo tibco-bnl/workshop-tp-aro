@@ -1595,22 +1595,37 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
 
 ## ⚙️ Configuration Examples Based on DNS Approach
 
-### 🔷 Configuration 1: Simplified DNS Structure (Recommended for v1.16.0)
+Choose the values file that matches your DNS approach and ingress/routing choice. Each file is **self-contained** — one file per combination, one `helm` command.
 
-**Use this if you chose Option 1 (Simplified DNS) in Step 7.1 and Approach 1 in Step 8.2.**
+| DNS approach | Ingress / routing | Values file |
+|:-------------|:-----------------|:------------|
+| Simplified DNS | OpenShift Ingress | `tibco-cp-base-simplified-ingress.yaml` |
+| Simplified DNS | NGINX Gateway Fabric (Gateway API) | `tibco-cp-base-simplified-gateway-api.yaml` |
+| Legacy DNS | OpenShift Ingress | `tibco-cp-base-legacy-ingress.yaml` |
+| Legacy DNS | NGINX Gateway Fabric (Gateway API) | `tibco-cp-base-legacy-gateway-api.yaml` |
 
-Based on the running instance (`dnsDomain: dp1.atsnl-emea.azure.dataplanes.pro`, specific host entries for `admin` and `ai`):
+Set the variable for your chosen file:
 
 ```bash
-helm upgrade --install --wait --timeout 1h --create-namespace \
-  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
-  --labels layer=0 \
-  --version "${CP_TIBCO_CP_BASE_VERSION}" -f - <<EOF
+export CP_VALUES_FILE="tibco-cp-base-simplified-ingress.yaml"  # change to your choice
+```
+
+---
+
+### 🔷 Configuration 1: Simplified DNS + OpenShift Ingress (Recommended)
+
+**Use this if you chose Option 1 (Simplified DNS) in Step 7.1.**
+
+Simplified DNS uses one base domain for all traffic. The tunnel gets a dedicated specific subdomain (`${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}`) so Ingress can route tunnel vs. router traffic without path tricks. This subdomain is covered by your existing `*.${TP_BASE_DNS_DOMAIN}` TLS certificate.
+
+```bash
+cat > tibco-cp-base-simplified-ingress.yaml <<EOF
 # =========================================
-# SIMPLIFIED DNS CONFIGURATION (v1.16.0)
+# TIBCO CP BASE — Simplified DNS + OpenShift Ingress
+# Tunnel subdomain: ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}
+# Certificate: *.${TP_BASE_DNS_DOMAIN} covers the tunnel subdomain.
 # =========================================
 
-# Hybrid-proxy: set enabled: false if not needed (saves resources)
 hybrid-proxy:
   enabled: ${CP_HYBRID_CONNECTIVITY}
   ingress:
@@ -1619,11 +1634,11 @@ hybrid-proxy:
     tls:
       - secretName: ${CP_TLS_SECRET_NAME}
         hosts:
-          - '${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}'
+          - '*.${TP_BASE_DNS_DOMAIN}'
     hosts:
-      - host: '${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}'
+      - host: '*.${TP_BASE_DNS_DOMAIN}'
         paths:
-          - path: /
+          - path: /infra/tunnel
             pathType: Prefix
             port: 105
 
@@ -1676,6 +1691,8 @@ global:
       nodeCIDR: ${TP_NODE_CIDR}
       podCIDR: ${TP_POD_CIDR}
       serviceCIDR: ${TP_SERVICE_CIDR}
+    # Simplified DNS: same base domain for router and tunnel.
+    # Tunnel traffic is discriminated by /infra/tunnel path on the wildcard Ingress rule.
     dnsDomain: ${TP_BASE_DNS_DOMAIN}
     dnsTunnelDomain: ${TP_BASE_DNS_DOMAIN}
     storage:
@@ -1683,7 +1700,6 @@ global:
         requests:
           storage: ${CP_STORAGE_SIZE}
       storageClassName: ${TP_FILE_STORAGE_CLASS}
-    # Database configuration (MANDATORY)
     db_host: ${CP_DB_HOST}
     db_name: ${CP_DB_NAME}
     db_port: ${CP_DB_PORT}
@@ -1691,60 +1707,176 @@ global:
     db_password: ${CP_DB_PASSWORD}
     db_secret_name: ${CP_DB_SECRET_NAME}
     db_ssl_mode: ${CP_DB_SSL_MODE}
-    # Email server configuration — DEPRECATED in 1.18.0
-    # As of TIBCO Platform 1.18.0, email provider settings are configured from
-    # the TIBCO Platform Console UI, not Helm values. Remove these fields if upgrading.
-    # Configure SMTP/SES/MailDev from: Platform Console → Administration → Email Server
-    # emailServerType: ${CP_EMAIL_SERVER_TYPE}
-    # emailServer:
-    #   smtp:
-    #     server: ${CP_EMAIL_SMTP_SERVER}
-    #     port: ${CP_EMAIL_SMTP_PORT}
-    #     username: ${CP_EMAIL_SMTP_USERNAME}
-    #     password: ${CP_EMAIL_SMTP_PASSWORD}
-    # Admin user configuration (MANDATORY)
     admin:
       email: ${CP_ADMIN_EMAIL}
       firstname: ${CP_ADMIN_FIRSTNAME}
       lastname: ${CP_ADMIN_LASTNAME}
       customerID: ${CP_ADMIN_CUSTOMER_ID}
-    # Optional: set a specific initial password for the admin user.
-    # If left empty, the platform auto-generates one (retrieve from job logs in Step 8.6.1).
     adminInitialPassword: "${CP_ADMIN_INITIAL_PASSWORD}"
-    # Encryption secrets (MANDATORY)
     cpEncryptionSecretName: cporch-encryption-secret
     cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
-    # uncomment following section if logging is enabled
-    # logserver:
-    #   endpoint: ${TP_LOGSERVER_ENDPOINT}
-    #   index: ${TP_LOGSERVER_INDEX}
-    #   username: ${TP_LOGSERVER_USERNAME}
-    #   password: ${TP_LOGSERVER_PASSWORD}
 EOF
 ```
 
 > [!NOTE]
 > **Simplified DNS Results:**
-> - Admin UI: `https://${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}` (e.g., `https://admin.apps.example.com`)
-> - Subscription: `https://${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}` (e.g., `https://dev.apps.example.com`)
-> - Tunnel (if enabled): `https://${CP_TUNNEL_HOST_PREFIX:-tunnel}.${TP_BASE_DNS_DOMAIN}`
+> - Admin UI: `https://${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}`
+> - Subscription: `https://${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}`
+> - Tunnel (if enabled): `https://${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}/infra/tunnel`
 
----
-
-### 🔶 Configuration 2: Legacy Multi-Level DNS Structure (Backward Compatible)
-
-**Use this if you chose Option 2 (Legacy DNS) in Step 7.1 and Approach 2 in Step 8.2.**
-
-> [!IMPORTANT]
-> Requires `WildcardsAllowed` on the ingress controller (Step 7.2) and separate TLS secrets (`custom-my-tls`, `custom-tunnel-tls`).
+Install:
 
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
   --labels layer=0 \
-  --version "${CP_TIBCO_CP_BASE_VERSION}" -f - <<EOF
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-simplified-ingress.yaml
+```
+
+---
+
+### 🔷 Configuration 2: Simplified DNS + NGINX Gateway Fabric / Gateway API
+
+> [!IMPORTANT]
+> **Why Gateway API uses hostname separation instead of path-based routing:**
+>
+> With OpenShift Ingress (Configuration 1), the ingress controller merges all Ingress rules into a shared rule set. A specific hostname (`${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}`) for `hybrid-proxy` and a wildcard for `router-operator` allows the controller to route by hostname specificity.
+>
+> With Gateway API, each service has its own independent `HTTPRoute` resource. Two `HTTPRoute` objects sharing the same wildcard hostname (`*.${TP_BASE_DNS_DOMAIN}`) with different path prefixes leads to implementation-specific routing behavior. The `tibco-cp-base` chart also does not expose a configurable path prefix for its generated HTTPRoute rules.
+>
+> The idiomatic Gateway API solution is **hostname separation**: `hybrid-proxy` gets a dedicated subdomain as its HTTPRoute hostname; `router-operator` gets explicit admin and subscription hostnames. The Gateway controller dispatches by hostname first — unambiguous across all Gateway API implementations.
+>
+> **Certificate:** your `*.${TP_BASE_DNS_DOMAIN}` TLS secret covers `${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}` — no extra certificate needed.
+
+```bash
+cat > tibco-cp-base-simplified-gateway-api.yaml <<EOF
 # =========================================
-# LEGACY MULTI-LEVEL DNS CONFIGURATION
+# TIBCO CP BASE — Simplified DNS + NGINX Gateway Fabric (Gateway API)
+#
+# Routing strategy: hostname separation.
+# hybrid-proxy    → ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}  (HTTPRoute)
+# router-operator → ${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}   (HTTPRoute)
+#                   ${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}         (HTTPRoute)
+#
+# Certificate: *.${TP_BASE_DNS_DOMAIN} covers the tunnel subdomain.
+# =========================================
+
+hybrid-proxy:
+  enabled: true
+  ingress:
+    enabled: false      # Ingress disabled — HTTPRoute takes over
+  gatewayRoute:
+    enabled: true
+    controllerName: ${TP_GATEWAY_CLASS}
+    hostnames:
+    - '${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}'
+    parentRefs:
+    - name: ${TP_GATEWAY_NAME}
+      namespace: ${TP_GATEWAY_NAMESPACE}
+
+otel-collector:
+  enabled: true
+
+router-operator:
+  enabled: true
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
+  ingress:
+    enabled: false      # Ingress disabled — HTTPRoute takes over
+  gatewayRoute:
+    enabled: true
+    controllerName: ${TP_GATEWAY_CLASS}
+    hostnames:
+    - '${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}'
+    - '${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}'
+    parentRefs:
+    - name: ${TP_GATEWAY_NAME}
+      namespace: ${TP_GATEWAY_NAMESPACE}
+
+resource-set-operator:
+  enabled: true
+
+global:
+  tibco:
+    adminHostPrefix: ${CP_ADMIN_HOST_PREFIX}
+    createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
+    containerRegistry:
+      url: ${TP_CONTAINER_REGISTRY_URL}
+      username: ${TP_CONTAINER_REGISTRY_USER}
+      password: ${TP_CONTAINER_REGISTRY_PASSWORD}
+      repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}
+    controlPlaneInstanceId: ${CP_INSTANCE_ID}
+    serviceAccount: ${CP_INSTANCE_ID}-sa
+    hybridConnectivity:
+      enabled: true
+  external:
+    clusterInfo:
+      nodeCIDR: ${TP_NODE_CIDR}
+      podCIDR: ${TP_POD_CIDR}
+      serviceCIDR: ${TP_SERVICE_CIDR}
+    # Gateway API uses hostname separation for the tunnel.
+    # dnsTunnelDomain is the dedicated tunnel subdomain — covered by existing wildcard cert.
+    dnsDomain: ${TP_BASE_DNS_DOMAIN}
+    dnsTunnelDomain: ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}
+    storage:
+      resources:
+        requests:
+          storage: ${CP_STORAGE_SIZE}
+      storageClassName: ${TP_FILE_STORAGE_CLASS}
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_username: ${CP_DB_USERNAME}
+    db_password: ${CP_DB_PASSWORD}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+    admin:
+      email: ${CP_ADMIN_EMAIL}
+      firstname: ${CP_ADMIN_FIRSTNAME}
+      lastname: ${CP_ADMIN_LASTNAME}
+      customerID: ${CP_ADMIN_CUSTOMER_ID}
+    adminInitialPassword: "${CP_ADMIN_INITIAL_PASSWORD}"
+    cpEncryptionSecretName: cporch-encryption-secret
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
+EOF
+```
+
+Install:
+
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-simplified-gateway-api.yaml
+```
+
+Verify the generated HTTPRoutes:
+
+```bash
+kubectl get httproute -n ${CP_INSTANCE_ID}-ns
+kubectl describe httproute -n ${CP_INSTANCE_ID}-ns
+```
+
+---
+
+### 🔶 Configuration 3: Legacy DNS + OpenShift Ingress
+
+**Use this if you chose Option 2 (Legacy DNS) in Step 7.1.**
+
+Legacy DNS uses separate domains for router (`CP_MY_DNS_DOMAIN`) and tunnel (`CP_TUNNEL_DNS_DOMAIN`). Two TLS secrets are required. Wildcard hosts cover all subdomains of each domain.
+
+```bash
+cat > tibco-cp-base-legacy-ingress.yaml <<EOF
+# =========================================
+# TIBCO CP BASE — Legacy DNS + OpenShift Ingress
+# Two separate domains: CP_MY_DNS_DOMAIN (router) and CP_TUNNEL_DNS_DOMAIN (tunnel).
+# Two TLS secrets required: custom-my-tls and custom-tunnel-tls.
 # =========================================
 
 hybrid-proxy:
@@ -1762,6 +1894,7 @@ hybrid-proxy:
           - path: /
             pathType: Prefix
             port: 105
+
 router-operator:
   enabled: true
   tscSessionKey:
@@ -1783,8 +1916,10 @@ router-operator:
           - path: /
             pathType: Prefix
             port: 100
+
 resource-set-operator:
   enabled: true
+
 global:
   tibco:
     createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
@@ -1802,8 +1937,8 @@ global:
       nodeCIDR: ${TP_NODE_CIDR}
       podCIDR: ${TP_POD_CIDR}
       serviceCIDR: ${TP_SERVICE_CIDR}
-    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
     dnsDomain: ${CP_MY_DNS_DOMAIN}
+    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
     storage:
       resources:
         requests:
@@ -1816,104 +1951,133 @@ global:
     db_password: ${CP_DB_PASSWORD}
     db_secret_name: ${CP_DB_SECRET_NAME}
     db_ssl_mode: ${CP_DB_SSL_MODE}
-    # Email server configuration — DEPRECATED in 1.18.0
-    # As of TIBCO Platform 1.18.0, email provider settings are configured from
-    # the TIBCO Platform Console UI, not Helm values. Remove these fields if upgrading.
-    # Configure SMTP/SES/MailDev from: Platform Console → Administration → Email Server
-    # emailServerType: ${CP_EMAIL_SERVER_TYPE}
-    # emailServer:
-    #   smtp:
-    #     server: ${CP_EMAIL_SMTP_SERVER}
-    #     port: ${CP_EMAIL_SMTP_PORT}
-    #     username: ${CP_EMAIL_SMTP_USERNAME}
-    #     password: ${CP_EMAIL_SMTP_PASSWORD}
     admin:
       email: ${CP_ADMIN_EMAIL}
       firstname: ${CP_ADMIN_FIRSTNAME}
       lastname: ${CP_ADMIN_LASTNAME}
       customerID: ${CP_ADMIN_CUSTOMER_ID}
-    # Optional: set a specific initial password for the admin user.
-    # If left empty, the platform auto-generates one (retrieve from job logs in Step 8.6.1).
     adminInitialPassword: "${CP_ADMIN_INITIAL_PASSWORD}"
     cpEncryptionSecretName: cporch-encryption-secret
     cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
-    # logserver:
-    #   endpoint: ${TP_LOGSERVER_ENDPOINT}
-    #   index: ${TP_LOGSERVER_INDEX}
-    #   username: ${TP_LOGSERVER_USERNAME}
-    #   password: ${TP_LOGSERVER_PASSWORD}
 EOF
 ```
-> **Verify Database Configuration After Deployment**: After the chart is installed, verify that the database configuration was correctly applied:
-> ```bash
-> # Check if the ConfigMap contains the DBHost key
-> kubectl get configmap provider-cp-database-config -n ${CP_INSTANCE_ID}-ns -o yaml | grep -i "host"
-> 
-> # Expected output should show:
-> #   DBHost: postgresql.tibco-ext.svc.cluster.local  (or your DB host)
-> ```
-> 
-> If the DBHost is missing from the ConfigMap, it indicates the database configuration was not included in the Helm values, and you'll need to redeploy with the corrected configuration.
 
-> [!NOTE]
-> The installation may take 15-30 minutes to complete. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
-
----
-
-### Configuration 3: Gateway API (HTTPRoutes instead of Ingress)
-
-> [!NOTE]
-> **When to use this:** Choose the Gateway API path if you have NGINX Gateway Fabric (or another Gateway API controller) installed and want `HTTPRoute` resources instead of classic `Ingress` objects for hybrid-proxy and router-operator. The global section (database, admin user, storage, etc.) remains the same as Configuration 1 or 2 — create a second override file and pass both files to `helm upgrade`.
-
-Set the gateway env vars (already added to `aks-aro-openshift-env-variables.sh`):
-
-```bash
-echo "TP_GATEWAY_NAME=${TP_GATEWAY_NAME}"           # e.g. tp-ngf-gateway
-echo "TP_GATEWAY_NAMESPACE=${TP_GATEWAY_NAMESPACE}" # e.g. ingress-system
-echo "TP_GATEWAY_CLASS=${TP_GATEWAY_CLASS}"         # e.g. nginx
-```
-
-Create the Gateway API override file and apply it on top of your base values:
+Install:
 
 ```bash
 helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
   --labels layer=0 \
   --version "${CP_TIBCO_CP_BASE_VERSION}" \
-  -f cp-values.yaml \
-  -f - <<EOF
+  -f tibco-cp-base-legacy-ingress.yaml
+```
+
+---
+
+### 🔶 Configuration 4: Legacy DNS + NGINX Gateway Fabric / Gateway API
+
+Legacy DNS with separate domains already provides natural hostname separation for Gateway API. `hybrid-proxy` claims `*.${CP_TUNNEL_DNS_DOMAIN}` and `router-operator` claims `*.${CP_MY_DNS_DOMAIN}` — each HTTPRoute has a distinct hostname domain.
+
+```bash
+cat > tibco-cp-base-legacy-gateway-api.yaml <<EOF
 # =========================================
-# GATEWAY API CONFIGURATION
+# TIBCO CP BASE — Legacy DNS + NGINX Gateway Fabric (Gateway API)
+#
+# Routing strategy: separate domains — natural hostname separation.
+# hybrid-proxy    → *.${CP_TUNNEL_DNS_DOMAIN}  (HTTPRoute)
+# router-operator → *.${CP_MY_DNS_DOMAIN}       (HTTPRoute)
+#
+# Two wildcard TLS secrets required: custom-my-tls and custom-tunnel-tls.
 # =========================================
 
 hybrid-proxy:
   enabled: true
+  ingress:
+    enabled: false      # Ingress disabled — HTTPRoute takes over
   gatewayRoute:
     enabled: true
     controllerName: ${TP_GATEWAY_CLASS}
     hostnames:
-    - '${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}'  # Dedicated tunnel back-channel
+    - '*.${CP_TUNNEL_DNS_DOMAIN}'
     parentRefs:
     - name: ${TP_GATEWAY_NAME}
       namespace: ${TP_GATEWAY_NAMESPACE}
-    annotations:
-      external-dns.alpha.kubernetes.io/hostname: '*.${TP_BASE_DNS_DOMAIN}'
 
 otel-collector:
   enabled: true
 
 router-operator:
+  enabled: true
+  tscSessionKey:
+    secretName: session-keys
+    key: TSC_SESSION_KEY
+  domainSessionKey:
+    secretName: session-keys
+    key: DOMAIN_SESSION_KEY
+  ingress:
+    enabled: false      # Ingress disabled — HTTPRoute takes over
   gatewayRoute:
     enabled: true
     controllerName: ${TP_GATEWAY_CLASS}
     hostnames:
-    - '*.${TP_BASE_DNS_DOMAIN}'  # Wildcard captures all current and future subscriptions
+    - '*.${CP_MY_DNS_DOMAIN}'
     parentRefs:
     - name: ${TP_GATEWAY_NAME}
       namespace: ${TP_GATEWAY_NAMESPACE}
-    annotations:
-      external-dns.alpha.kubernetes.io/hostname: '*.${TP_BASE_DNS_DOMAIN}'
+
+resource-set-operator:
+  enabled: true
+
+global:
+  tibco:
+    createNetworkPolicy: ${TP_ENABLE_NETWORK_POLICY}
+    containerRegistry:
+      url: ${TP_CONTAINER_REGISTRY_URL}
+      username: ${TP_CONTAINER_REGISTRY_USER}
+      password: ${TP_CONTAINER_REGISTRY_PASSWORD}
+      repository: ${TP_CONTAINER_REGISTRY_REPOSITORY}
+    controlPlaneInstanceId: ${CP_INSTANCE_ID}
+    serviceAccount: ${CP_INSTANCE_ID}-sa
+    hybridConnectivity:
+      enabled: true
+  external:
+    clusterInfo:
+      nodeCIDR: ${TP_NODE_CIDR}
+      podCIDR: ${TP_POD_CIDR}
+      serviceCIDR: ${TP_SERVICE_CIDR}
+    dnsDomain: ${CP_MY_DNS_DOMAIN}
+    dnsTunnelDomain: ${CP_TUNNEL_DNS_DOMAIN}
+    storage:
+      resources:
+        requests:
+          storage: ${CP_STORAGE_SIZE}
+      storageClassName: ${TP_FILE_STORAGE_CLASS}
+    db_host: ${CP_DB_HOST}
+    db_name: ${CP_DB_NAME}
+    db_port: ${CP_DB_PORT}
+    db_username: ${CP_DB_USERNAME}
+    db_password: ${CP_DB_PASSWORD}
+    db_secret_name: ${CP_DB_SECRET_NAME}
+    db_ssl_mode: ${CP_DB_SSL_MODE}
+    admin:
+      email: ${CP_ADMIN_EMAIL}
+      firstname: ${CP_ADMIN_FIRSTNAME}
+      lastname: ${CP_ADMIN_LASTNAME}
+      customerID: ${CP_ADMIN_CUSTOMER_ID}
+    adminInitialPassword: "${CP_ADMIN_INITIAL_PASSWORD}"
+    cpEncryptionSecretName: cporch-encryption-secret
+    cpEncryptionSecretKey: CP_ENCRYPTION_SECRET
 EOF
+```
+
+Install:
+
+```bash
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --labels layer=0 \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  -f tibco-cp-base-legacy-gateway-api.yaml
 ```
 
 Verify the generated HTTPRoutes:
@@ -1922,9 +2086,6 @@ Verify the generated HTTPRoutes:
 kubectl get httproute -n ${CP_INSTANCE_ID}-ns
 kubectl describe httproute -n ${CP_INSTANCE_ID}-ns
 ```
-
-> [!TIP]
-> The `*.${TP_BASE_DNS_DOMAIN}` wildcard hostname on `router-operator` captures admin, subscription, and any future portal hostnames without requiring individual entries. The `hybrid-proxy` uses an explicit `${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}` hostname so the tunnel back-channel stays isolated from the wildcard.
 
 ---
 
