@@ -25,7 +25,8 @@ This guide covers the official TIBCO synchronization script, safe copy methods f
 5. [OpenShift Integrated Registry — Authentication & Setup](#5-️-openshift-integrated-registry--authentication--setup)
 6. [Verify Image Integrity](#6--verify-image-integrity)
 7. [Runbook: Fix an Already-Corrupted Registry](#7--runbook-fix-an-already-corrupted-registry)
-8. [Additional Resources](#8--additional-resources)
+8. [Production Air-Gap Scripts (Validated Download + Upload)](#8--production-air-gap-scripts-validated-download--upload)
+9. [Additional Resources](#9--additional-resources)
 
 ---
 
@@ -236,8 +237,9 @@ tar -cvf tibco-plugin-transport.tar -C /tmp/staging tci-bw-plugin-ap
 tar -xvf tibco-plugin-transport.tar -C /tmp/staging
 
 # Push bit-perfect to the target registry
-# The --force flag overwrites any previously corrupted records
-skopeo copy --force --format v2s2 \
+# --force overwrites cached blobs; --preserve-digests forces the registry to write
+# original upstream blobs exactly (critical for OpenShift integrated registry)
+skopeo copy --force --preserve-digests --dest-tls-verify=false --format v2s2 \
   dir:/tmp/staging/tci-bw-plugin-ap \
   docker://registry.apps.ocp-tibco-workshop.example.com/tibco-platform-cp/tci-bw-plugin-ap:5.0.0.v11.2-tci-2.0
 ```
@@ -368,13 +370,16 @@ If images were already pushed using `podman push` or `docker push` and the OpenS
 
 ### Step 1 — Evict Stale ImageStream Records
 
+OpenShift's integrated registry caches image manifests per ImageStream tag. Delete the specific tag (not the whole stream) to force the registry to accept new blob data on the next push.
+
 ```bash
 NAMESPACE="tibcoplatform-cp-dev"
 
-oc delete imagestream tci-bw-plugin-ap   -n $NAMESPACE
-oc delete imagestream tci-bw-plugin-cics -n $NAMESPACE
-oc delete imagestream tci-bw-plugin-as2  -n $NAMESPACE
-# Repeat for any other affected BW plugin images
+oc delete imagestreamtag tci-bw-plugin-ap:5.0.0.v11.2-tci-2.0   -n $NAMESPACE 2>/dev/null || true
+oc delete imagestreamtag tci-bw-plugin-cics:2.5.0.v4.3-tci-2.0  -n $NAMESPACE 2>/dev/null || true
+oc delete imagestreamtag tci-bw-plugin-as2:2.5.0.v4.3-tci-2.0   -n $NAMESPACE 2>/dev/null || true
+# Repeat for any other affected tags; adjust versions to match your deployment
+# Use `oc delete imagestream <name>` only if all tags in the stream need eviction
 ```
 
 ### Step 2 — Delete Broken Extraction Job Pods
@@ -397,7 +402,160 @@ The capability deployment will now find intact images and the extraction jobs wi
 
 ---
 
-## 8. 🔗 Additional Resources
+## 8. 🚀 Production Air-Gap Scripts (Validated Download + Upload)
+
+For proxy-segmented ARO environments where the JFrog source and the OpenShift integrated registry have no shared network path, use the following two-script workflow. Both scripts include integrity validation using `skopeo inspect` layer size comparison, validated in production air-gapped OpenShift deployments.
+
+**Why `--preserve-digests` matters:** Without this flag, the OpenShift integrated registry may reassign layer manifests during upload, triggering re-compression that corrupts BW plugin GZIP layer headers (the `BTYPE=00` failure mode). The `--preserve-digests` flag forces the registry API to write the original upstream blobs exactly, bypassing any re-compression step.
+
+### Script 1 — Download and Validate (Proxy ON)
+
+Run on the internet-connected jump server. Downloads each image as a `dir://` staging directory, validates local byte sizes against the JFrog baseline, then archives for transport.
+
+```bash
+#!/bin/bash
+LOG_FILE="DownloadAndVerify_$(date +%Y%m%d_%H%M%S).log"
+exec > >(tee -a "${LOG_FILE}") 2>&1
+
+SRC_CREDS="<jfrog-username>:<jfrog-api-token>"
+SOURCE_REGISTRY="csgprduswrepoedge.jfrog.io/tibco-platform-docker-prod"
+LOCAL_ARCHIVE_DIR="/transfer/tibco-images"
+
+IMAGES=(
+  "tci-bw-plugin-ap:5.0.0.v11.2-tci-2.0"
+  "tci-bw-plugin-kafka:5.0.1.v13.1-tci-2.0"
+  "tci-bw-plugin-pdf:1.0.0.v12.3-tci-2.0"
+  "tci-bw-plugin-salesforce:2.6.0.v26-tci-2.0"
+  "tci-bw-plugin-sharepoint:1.1.0.v19-tci-2.0"
+  "tci-bw-plugin-sp:1.1.1.v3-tci-2.0"
+  "tci-bw-plugin-cassandra:6.3.3.v12-tci-2.0"
+  "infra-container-image-extractor:170-distroless"
+  "common-distroless-base-debian-debug:13.3"
+)
+
+mkdir -p "${LOCAL_ARCHIVE_DIR}" /tmp/skopeo_scratch
+
+for IMAGE in "${IMAGES[@]}"; do
+    NAME=$(echo "$IMAGE" | cut -d':' -f1)
+    TAG=$(echo "$IMAGE" | cut -d':' -f2)
+    SAFE_NAME="${NAME}-${TAG}"
+
+    echo "=== Processing: ${IMAGE} ==="
+
+    JFROG_SIZE=$(skopeo inspect --creds "${SRC_CREDS}" \
+      docker://${SOURCE_REGISTRY}/${IMAGE} | jq '[.LayersData[].Size] | add')
+
+    rm -rf "/tmp/skopeo_scratch/${SAFE_NAME}"
+    mkdir -p "/tmp/skopeo_scratch/${SAFE_NAME}"
+
+    if skopeo copy --src-creds "${SRC_CREDS}" \
+      docker://${SOURCE_REGISTRY}/${IMAGE} \
+      dir:///tmp/skopeo_scratch/${SAFE_NAME}; then
+
+        LOCAL_SIZE=$(find /tmp/skopeo_scratch/${SAFE_NAME} -type f \
+          -not -name "manifest.json" -not -name "version" \
+          -exec stat -c%s {} + | awk '{s+=$1} END {print s}')
+
+        if [ "${JFROG_SIZE}" -eq "${LOCAL_SIZE}" ]; then
+            echo "INTEGRITY CHECK PASSED: ${SAFE_NAME} — JFrog (${JFROG_SIZE}) == Local (${LOCAL_SIZE})"
+            tar -cf "${LOCAL_ARCHIVE_DIR}/${SAFE_NAME}.tar" \
+              -C /tmp/skopeo_scratch "${SAFE_NAME}"
+        else
+            echo "ERROR: Size mismatch — JFrog: ${JFROG_SIZE}, Local: ${LOCAL_SIZE}. Skipping archive."
+        fi
+    fi
+    rm -rf "/tmp/skopeo_scratch/${SAFE_NAME}"
+done
+
+rm -rf /tmp/skopeo_scratch
+echo "=== Done. Transfer ${LOCAL_ARCHIVE_DIR} to the target jump server. ==="
+```
+
+Transfer the archive directory across the air-gap perimeter to the target-side jump server inside the OpenShift secure network.
+
+### Script 2 — Upload and Post-Verify (Proxy OFF, OpenShift Integrated Registry)
+
+Run on the target-side jump server. Authenticates using the OpenShift service account token, evicts any stale ImageStream tag cache, pushes with `--preserve-digests`, and post-verifies that registry layer sizes match the local baseline.
+
+```bash
+#!/bin/bash
+LOG_FILE="UploadAndVerify_$(date +%Y%m%d_%H%M%S).log"
+exec > >(tee -a "${LOG_FILE}") 2>&1
+
+TARGET_REGISTRY="$(oc get route default-route -n openshift-image-registry -o jsonpath='{.spec.host}')"
+NAMESPACE="<target-namespace>"
+ARCHIVE_DIR="/transfer/tibco-images"
+TMP_DIR="/tmp/skopeo-upload"
+
+IMAGES=(
+  "tci-bw-plugin-ap:5.0.0.v11.2-tci-2.0"
+  "tci-bw-plugin-kafka:5.0.1.v13.1-tci-2.0"
+  "tci-bw-plugin-pdf:1.0.0.v12.3-tci-2.0"
+  "tci-bw-plugin-salesforce:2.6.0.v26-tci-2.0"
+  "tci-bw-plugin-sharepoint:1.1.0.v19-tci-2.0"
+  "tci-bw-plugin-sp:1.1.1.v3-tci-2.0"
+  "tci-bw-plugin-cassandra:6.3.3.v12-tci-2.0"
+  "infra-container-image-extractor:170-distroless"
+  "common-distroless-base-debian-debug:13.3"
+)
+
+podman login -u serviceaccount -p "$(oc whoami -t)" \
+  "${TARGET_REGISTRY}" --tls-verify=false
+
+oc delete jobs --selector=app.kubernetes.io/component=bwce-utilities \
+  -n "${NAMESPACE}" 2>/dev/null || true
+
+mkdir -p "${TMP_DIR}"
+
+for IMAGE in "${IMAGES[@]}"; do
+    NAME=$(echo "$IMAGE" | cut -d':' -f1)
+    TAG=$(echo "$IMAGE" | cut -d':' -f2)
+    SAFE_NAME="${NAME}-${TAG}"
+    TAR_FILE="${ARCHIVE_DIR}/${SAFE_NAME}.tar"
+    WORK_DIR="${TMP_DIR}/${SAFE_NAME}"
+
+    echo "=== Uploading: ${IMAGE} ==="
+
+    [ ! -f "${TAR_FILE}" ] && echo "ERROR: Archive not found: ${TAR_FILE}" && continue
+
+    rm -rf "${WORK_DIR}" && mkdir -p "${WORK_DIR}"
+    tar -xf "${TAR_FILE}" -C "${WORK_DIR}"
+
+    IMAGE_DIR=$(find "${WORK_DIR}" -maxdepth 2 -type f \
+      \( -name "oci-layout" -o -name "manifest.json" \) | head -1 | xargs -r dirname)
+    [ -z "${IMAGE_DIR}" ] && echo "ERROR: Cannot locate image dir in ${WORK_DIR}" && continue
+
+    LOCAL_SUM=$(find "${IMAGE_DIR}" -type f \
+      -not -name "manifest.json" -not -name "version" \
+      -exec stat -c%s {} + | awk '{s+=$1} END {print s}')
+
+    oc delete imagestreamtag "${NAME}:${TAG}" -n "${NAMESPACE}" 2>/dev/null || true
+
+    if skopeo copy --preserve-digests --dest-tls-verify=false --format v2s2 \
+      dir://"${IMAGE_DIR}" \
+      docker://${TARGET_REGISTRY}/${NAMESPACE}/${NAME}:${TAG}; then
+
+        sleep 2
+        REMOTE_SUM=$(skopeo inspect --tls-verify=false \
+          docker://${TARGET_REGISTRY}/${NAMESPACE}/${NAME}:${TAG} \
+          | jq '[.LayersData[].Size] | add')
+
+        if [ "${LOCAL_SUM}" -eq "${REMOTE_SUM}" ]; then
+            echo "VERIFICATION PASSED: ${NAME}:${TAG} — Registry (${REMOTE_SUM}) matches local."
+        else
+            echo "WARNING: Size mismatch — expected ${LOCAL_SUM}, registry reports ${REMOTE_SUM}"
+        fi
+    fi
+    rm -rf "${WORK_DIR}"
+done
+
+rm -rf "${TMP_DIR}"
+echo "=== Upload and post-verification complete. ==="
+```
+
+---
+
+## 9. 🔗 Additional Resources
 
 ### Official TIBCO Scripts
 
