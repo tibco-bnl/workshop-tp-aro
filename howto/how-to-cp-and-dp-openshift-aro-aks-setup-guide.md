@@ -1541,6 +1541,23 @@ kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns
 kubectl get secret cporch-encryption-secret -n ${CP_INSTANCE_ID}-ns -o yaml
 ```
 
+### Enterprise / Restricted Namespace Environments
+
+> **Applies to:** Security-hardened ARO clusters where the pipeline service account cannot create arbitrary namespaces, ClusterRoles, or NetworkPolicy resources.
+>
+> Add the following two flags under `global.tibco` in your values file. `useSingleNamespace: true` restricts the entire TIBCO Control Plane footprint — microservices, ingress routes, and jobs — to a single pre-provisioned namespace. `createNetworkPolicy: false` prevents failures when the pipeline SA lacks RBAC to create NetworkPolicy resources:
+>
+> ```yaml
+> global:
+>   tibco:
+>     controlPlaneInstanceId: "cp1"
+>     serviceAccount: "cp1-sa"
+>     useSingleNamespace: true    # Restricts all CP resources to one namespace
+>     createNetworkPolicy: false  # Disable if SA cannot create NetworkPolicy resources
+> ```
+>
+> See [Troubleshooting — Single-Namespace Restriction](#single-namespace-restriction-enterprise--hardened-environments) for full context.
+
 ### Step 8.4: Install TIBCO Control Plane Base Chart
 
 **Important Note about Chart Evolution:**
@@ -2859,6 +2876,100 @@ helm upgrade --install --wait --timeout 1h \
 ```
 
 **Related:** See [Step 8.4: Install TIBCO Control Plane Base Chart](#step-84-install-tibco-control-plane-base-chart) for the complete and corrected installation command.
+
+#### PodSecurityPolicy Nil Pointer Error
+
+**Error:** `nil pointer evaluating interface {}.enabled` referencing `psp.yaml` inside the `tp-cp-prometheus` sub-chart.
+
+**Cause:** PodSecurityPolicies are deprecated and removed in Kubernetes v1.25+ / OpenShift 4.12+. The `tp-cp-prometheus` sub-chart evaluates `podSecurityPolicy.enabled`, but when the parent block is completely absent from your values file the Helm template engine crashes with a nil pointer.
+
+**Fix:** Add the following block to your values file:
+
+```yaml
+tp-cp-prometheus:
+  podSecurityPolicy:
+    enabled: false
+```
+
+---
+
+#### Database Password Parsing Failure (Special Characters)
+
+**Error:** `yaml: did not find expected key` or `did not find expected node content` on `tibcoroute.yaml` or `jobs-cleanup.yaml` templates.
+
+**Cause:** The database password contains special characters (`$`, `%`, `(`, etc.) that conflict with Helm's internal token evaluator when wrapped in double quotes.
+
+**Fix:** Wrap the password in single quotes and escape any dollar signs as `$$`:
+
+```yaml
+global:
+  external:
+    db_password: 'myP@$$word(2024)'
+```
+
+---
+
+#### Malformed Environment Variable Tokens and Indentation Errors
+
+**Error:** `yaml: did not find expected key` caused by unreplaced `${TOKEN}` strings or misaligned indentation in the `networkPolicy` block.
+
+**Fix:** Replace any unreplaced `${TOKEN}` with `""` and disable network policy creation if the pipeline SA lacks RBAC:
+
+```yaml
+global:
+  tibco:
+    createNetworkPolicy: false
+    networkPolicy:
+      database:
+        CIDR: ""
+        port: "5432"
+      emailServer:
+        CIDR: ""
+        port: "587"
+```
+
+---
+
+#### Single-Namespace Restriction (Enterprise / Hardened Environments)
+
+**Error:** Helm installation fails during ClusterRole or namespace creation because the pipeline service account cannot create namespaces or cluster-scoped resources.
+
+**Cause:** By default, the TIBCO Control Plane chart assumes a multi-namespace topology. Enterprise ARO clusters often restrict pipeline service accounts to a single pre-provisioned namespace.
+
+**Fix:** Add `useSingleNamespace: true` and `createNetworkPolicy: false` under `global.tibco`:
+
+```yaml
+global:
+  tibco:
+    controlPlaneInstanceId: "cp1"
+    serviceAccount: "cp1-sa"
+    useSingleNamespace: true    # Restricts all CP resources to one namespace
+    createNetworkPolicy: false  # Disable if SA cannot create NetworkPolicy resources
+```
+
+---
+
+#### CRD Rendering Warning and `--skip-crds` Flag
+
+**Error:** `WARNING: This chart or one of its subcharts contains CRDs. Rendering may fail or contain inaccuracies.` followed by parser failures from sub-charts.
+
+**Cause:** TIBCO Platform bundles Custom Resource Definitions. When those CRDs are not yet registered in the cluster, Helm cannot validate sub-chart resource mappings.
+
+**Fix:** Apply the CRDs to the cluster first, then add `--skip-crds`:
+
+```bash
+# Step 1: Apply CRDs to the cluster
+kubectl apply -f /path/to/tibco-cp-base-1.18.0-extracted/crds/
+
+# Step 2: Install with --skip-crds
+helm upgrade --install --wait --timeout 1h --create-namespace \
+  -n ${CP_INSTANCE_ID}-ns tibco-cp-base ${HELM_URL}/tibco-cp-base \
+  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  --skip-crds \
+  -f ${CP_VALUES_FILE}
+```
+
+---
 
 ### Verify ARO Cluster Status
 

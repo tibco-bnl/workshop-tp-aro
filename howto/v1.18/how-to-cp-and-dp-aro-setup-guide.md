@@ -90,7 +90,7 @@ The `global.tibco.networkPolicy.emailServer` block in `tibco-cp-base` values is 
 Use the 1.18.0 chart version. The install command follows the same pattern as earlier releases:
 
 ```bash
-helm upgrade --install --wait --timeout 2h --create-namespace \
+helm upgrade --install --wait --timeout 1h --create-namespace \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-base tibco-platform/tibco-cp-base \
   --labels layer=1 \
   --version "1.18.0" \
