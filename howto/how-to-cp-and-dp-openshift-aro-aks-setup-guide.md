@@ -1755,28 +1755,32 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
 
 ### 🔷 Configuration 2: Simplified DNS + NGINX Gateway Fabric / Gateway API
 
-> [!IMPORTANT]
-> **Why Gateway API uses hostname separation instead of path-based routing:**
+> [!NOTE]
+> **Simplified DNS with path-based routing:** both `hybrid-proxy` and `router-operator` share
+> the `*.${TP_BASE_DNS_DOMAIN}` wildcard hostname. Setting `dnsDomain == dnsTunnelDomain` causes
+> the `hybrid-proxy` chart to render only a `PathPrefix: /infra/tunnel` rule — no `/` catch-all.
+> Path specificity routes tunnel traffic to `hybrid-proxy` and all other paths to `router-operator`
+> cleanly across all Gateway API implementations.
 >
-> With OpenShift Ingress (Configuration 1), the ingress controller merges all Ingress rules into a shared rule set. A specific hostname (`${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}`) for `hybrid-proxy` and a wildcard for `router-operator` allows the controller to route by hostname specificity.
+> No extra TLS secret or DNS record is needed beyond the existing `*.${TP_BASE_DNS_DOMAIN}`
+> wildcard already used by Configuration 1.
 >
-> With Gateway API, each service has its own independent `HTTPRoute` resource. Two `HTTPRoute` objects sharing the same wildcard hostname (`*.${TP_BASE_DNS_DOMAIN}`) with different path prefixes leads to implementation-specific routing behavior. The `tibco-cp-base` chart also does not expose a configurable path prefix for its generated HTTPRoute rules.
->
-> The idiomatic Gateway API solution is **hostname separation**: `hybrid-proxy` gets a dedicated subdomain as its HTTPRoute hostname; `router-operator` gets explicit admin and subscription hostnames. The Gateway controller dispatches by hostname first — unambiguous across all Gateway API implementations.
->
-> **Certificate:** your `*.${TP_BASE_DNS_DOMAIN}` TLS secret covers `${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}` — no extra certificate needed.
+> To confirm your installed GatewayClass name: `kubectl get gatewayclass`
 
 ```bash
 cat > tibco-cp-base-simplified-gateway-api.yaml <<EOF
 # =========================================
 # TIBCO CP BASE — Simplified DNS + NGINX Gateway Fabric (Gateway API)
 #
-# Routing strategy: hostname separation.
-# hybrid-proxy    → ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}  (HTTPRoute)
-# router-operator → ${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}   (HTTPRoute)
-#                   ${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}         (HTTPRoute)
+# Routing strategy: path-based, shared wildcard hostname.
+# hybrid-proxy    → *.${TP_BASE_DNS_DOMAIN}/infra/tunnel  (HTTPRoute)
+# router-operator → *.${TP_BASE_DNS_DOMAIN}/              (HTTPRoute)
 #
-# Certificate: *.${TP_BASE_DNS_DOMAIN} covers the tunnel subdomain.
+# dnsDomain == dnsTunnelDomain → chart renders only PathPrefix:/infra/tunnel
+# for hybrid-proxy; no / catch-all, so no route conflict with router-operator.
+#
+# Certificate: existing *.${TP_BASE_DNS_DOMAIN} wildcard — no extra cert.
+# DNS: no extra record required.
 # =========================================
 
 hybrid-proxy:
@@ -1787,7 +1791,7 @@ hybrid-proxy:
     enabled: true
     controllerName: ${TP_GATEWAY_CLASS}
     hostnames:
-    - '${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}'
+    - '*.${TP_BASE_DNS_DOMAIN}'
     parentRefs:
     - name: ${TP_GATEWAY_NAME}
       namespace: ${TP_GATEWAY_NAMESPACE}
@@ -1809,8 +1813,7 @@ router-operator:
     enabled: true
     controllerName: ${TP_GATEWAY_CLASS}
     hostnames:
-    - '${CP_ADMIN_HOST_PREFIX}.${TP_BASE_DNS_DOMAIN}'
-    - '${CP_SUBSCRIPTION}.${TP_BASE_DNS_DOMAIN}'
+    - '*.${TP_BASE_DNS_DOMAIN}'
     parentRefs:
     - name: ${TP_GATEWAY_NAME}
       namespace: ${TP_GATEWAY_NAMESPACE}
@@ -1836,10 +1839,11 @@ global:
       nodeCIDR: ${TP_NODE_CIDR}
       podCIDR: ${TP_POD_CIDR}
       serviceCIDR: ${TP_SERVICE_CIDR}
-    # Gateway API uses hostname separation for the tunnel.
-    # dnsTunnelDomain is the dedicated tunnel subdomain — covered by existing wildcard cert.
+    # Simplified DNS: dnsDomain == dnsTunnelDomain.
+    # The hybrid-proxy chart renders only PathPrefix:/infra/tunnel (no / catch-all)
+    # when both values are identical, so path specificity routes cleanly.
     dnsDomain: ${TP_BASE_DNS_DOMAIN}
-    dnsTunnelDomain: ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}
+    dnsTunnelDomain: ${TP_BASE_DNS_DOMAIN}
     storage:
       resources:
         requests:
