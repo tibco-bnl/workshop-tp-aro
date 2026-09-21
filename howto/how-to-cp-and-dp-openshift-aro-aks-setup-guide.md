@@ -11,11 +11,14 @@ title: TIBCO Platform Control Plane and Data Plane Setup on ARO
 This document is with extra details while following the above document and make all the things working.
 
 > [!NOTE]
-> **Version 1.16.0 Update**: This document has been updated to reflect the latest TIBCO Platform Control Plane version 1.16.0. Key changes include:
-> - **Simplified DNS Structure**: Single-level subdomain structure (e.g., `admin.baseURL` instead of `admin.cp1-my.apps.baseURL`) — wildcard ingress policy no longer required
-> - Unified chart deployment using `tibco-cp-base` (previously split between `platform-bootstrap` and `platform-base`)
-> - Updated chart versions to 1.16.0
-> - BW6 AI Plugin 6.0.0 with RAG support, Flogo init/sidecar container support, enhanced BW5 monitoring
+> **Version 1.20.0 Update** (September 21, 2026): This shared baseline now targets TIBCO Platform Control Plane 1.20.0. Release-specific details live in the [v1.20 overlay](./v1.20/how-to-cp-and-dp-aro-setup-guide); the [v1.19 overlay](./v1.19/how-to-cp-and-dp-aro-setup-guide) is the mandatory upgrade hop from 1.18.0. Key changes since 1.18.0:
+> - `CP_TIBCO_CP_BASE_VERSION` is `1.20.0`; Data Plane examples use `dp-configure-namespace` 1.20.0 and `dp-core-infrastructure` 1.20.3
+> - `global.tibco.networkPolicy.createDeprecatedPolicies` (tibco-cp-base) and `networkPolicy.createDeprecatedPolicies` (dp-configure-namespace) were removed in 1.19.0; delete them from existing values files and saved commands
+> - `otel-collector.enabled` chart default is `false` in 1.20.0 (it was `true` in 1.19.0); this guide sets it explicitly
+> - New `global.tibco.disabledInfraCapabilities` value in 1.20.0 (chart default `[MFTADAPTER]`)
+> - Gateway API: since 1.19.0 the `hybrid-proxy` HTTPRoute renders `/infra/tunnel` itself, so simplified DNS no longer needs hostname separation (PCP-21362 fixed); OpenShift Routes remain the primary ingress
+> - Control Plane rollback via `helm rollback` is supported from 1.20.0; record `helm history` before upgrading
+> - No SCC changes; email stays Console-managed (since 1.18.0); simplified DNS (single-level subdomains such as `admin.baseURL`) and the unified `tibco-cp-base` chart remain the baseline
 
 Note: This document is copy of gh-pages doc from [here:](https://tibco-bnl.github.io/workshop-tibco-platform/docs/howto/how-to-dp-openshift-aro-aks-setup-guide.html#get-openshift-ingress-domain) hence links in table of contents will not work if you are viewing in google docs. 
 
@@ -750,7 +753,7 @@ export CP_TLS_SECRET_NAME="cp-tls-cert" # TLS secret for Control Plane (simplifi
 # export CP_TUNNEL_TLS_SECRET_NAME="custom-tunnel-tls"
 
 # Control Plane chart versions
-export CP_TIBCO_CP_BASE_VERSION=1.16.0
+export CP_TIBCO_CP_BASE_VERSION=1.20.0
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # storage size for Control Plane components
@@ -1756,16 +1759,14 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
 ### 🔷 Configuration 2: Simplified DNS + NGINX Gateway Fabric / Gateway API
 
 > [!NOTE]
-> **Hostname separation required in 1.18:** the chart always generates both `PathPrefix: /infra/tunnel`
-> and `PathPrefix: /` for `hybrid-proxy`. Assign `hybrid-proxy` a dedicated tunnel subdomain hostname
-> (`${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}`) and set `dnsTunnelDomain` to that subdomain.
-> The Gateway controller dispatches by hostname first — requests to the tunnel subdomain go to
-> `hybrid-proxy`, all other requests match the wildcard and go to `router-operator`.
+> **Shared wildcard hostname (tibco-cp-base 1.19.0 and later):** with `dnsDomain == dnsTunnelDomain` the chart
+> renders only `PathPrefix: /infra/tunnel` for `hybrid-proxy` and `PathPrefix: /` for `router-operator`, so both
+> HTTPRoutes attach to `*.${TP_BASE_DNS_DOMAIN}` on the same Gateway (fix for PCP-21362). The longer `/infra/tunnel`
+> match wins for tunnel traffic; no dedicated tunnel subdomain, extra DNS record, or extra TLS secret is needed.
 >
-> **From `tibco-cp-base` 1.19.0+ (upcoming):** setting `dnsDomain == dnsTunnelDomain` eliminates the
-> `/` catch-all, allowing shared `*.${TP_BASE_DNS_DOMAIN}` without hostname separation.
->
-> The `*.${TP_BASE_DNS_DOMAIN}` wildcard TLS secret already covers the tunnel subdomain — no extra cert needed.
+> The chart does not read a `gatewayRoute.rules` value in any version — do not add explicit rules.
+> If you are still on `tibco-cp-base` 1.18.x, keep the hostname-separation layout from the
+> [1.18 overlay](./v1.18/how-to-cp-and-dp-aro-setup-guide) (dedicated `${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}` hostname).
 >
 > To confirm your installed GatewayClass name: `kubectl get gatewayclass`
 
@@ -1774,16 +1775,14 @@ cat > tibco-cp-base-simplified-gateway-api.yaml <<EOF
 # =========================================
 # TIBCO CP BASE — Simplified DNS + NGINX Gateway Fabric (Gateway API)
 #
-# Routing strategy: hostname separation (required in 1.18).
-# hybrid-proxy    → ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}  (HTTPRoute)
-# router-operator → *.${TP_BASE_DNS_DOMAIN}                          (HTTPRoute)
+# Routing strategy (tibco-cp-base 1.19.0+): shared wildcard hostname.
+# hybrid-proxy    → *.${TP_BASE_DNS_DOMAIN}  (HTTPRoute, chart renders PathPrefix:/infra/tunnel)
+# router-operator → *.${TP_BASE_DNS_DOMAIN}  (HTTPRoute, chart renders PathPrefix:/)
 #
-# In 1.18, the chart only generates PathPrefix:/ for hybrid-proxy (PCP-21362).
-# PathPrefix:/infra/tunnel is missing — must be added explicitly in rules below.
-# Gateway dispatches by hostname first — tunnel subdomain always wins.
+# Because dnsDomain == dnsTunnelDomain the chart omits the catch-all "/" rule for
+# hybrid-proxy. The chart does not read gatewayRoute.rules — no explicit rules.
 #
-# Certificate: *.${TP_BASE_DNS_DOMAIN} wildcard covers the tunnel subdomain — no extra cert.
-# DNS: add DNS record: ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN} → Gateway LB.
+# Certificate: one *.${TP_BASE_DNS_DOMAIN} wildcard TLS secret. DNS: one wildcard record → Gateway LB.
 # =========================================
 
 hybrid-proxy:
@@ -1794,28 +1793,13 @@ hybrid-proxy:
     enabled: true
     controllerName: ${TP_GATEWAY_CLASS}
     hostnames:
-    - '${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}'
+    - '*.${TP_BASE_DNS_DOMAIN}'
     parentRefs:
     - name: ${TP_GATEWAY_NAME}
       namespace: ${TP_GATEWAY_NAMESPACE}
-    rules:
-    - matches:
-      - path:
-          type: PathPrefix
-          value: /infra/tunnel
-      backendRefs:
-      - name: hybrid-proxy
-        port: 105
-    - matches:
-      - path:
-          type: PathPrefix
-          value: /
-      backendRefs:
-      - name: hybrid-proxy
-        port: 105
 
 otel-collector:
-  enabled: true
+  enabled: true         # set explicitly: chart default is false in 1.20.0 (true in 1.19.0); requires a log server
 
 router-operator:
   enabled: true
@@ -1857,11 +1841,10 @@ global:
       nodeCIDR: ${TP_NODE_CIDR}
       podCIDR: ${TP_POD_CIDR}
       serviceCIDR: ${TP_SERVICE_CIDR}
-    # Hostname separation: dnsTunnelDomain is the dedicated tunnel subdomain.
-    # In 1.18, PathPrefix:/infra/tunnel is NOT generated by the chart (PCP-21362).
-    # The explicit rules above add both path rules as a workaround.
+    # Simplified DNS: same base domain for router and tunnel traffic.
+    # Equal values make the chart render only PathPrefix:/infra/tunnel for hybrid-proxy (1.19.0+).
     dnsDomain: ${TP_BASE_DNS_DOMAIN}
-    dnsTunnelDomain: ${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}
+    dnsTunnelDomain: ${TP_BASE_DNS_DOMAIN}
     storage:
       resources:
         requests:
@@ -1895,19 +1878,20 @@ helm upgrade --install --wait --timeout 1h --create-namespace \
   -f tibco-cp-base-simplified-gateway-api.yaml
 ```
 
-Verify the HTTPRoute has both explicit path rules:
+Verify the HTTPRoutes rendered by the chart:
 
 ```bash
 kubectl get httproute -n ${CP_INSTANCE_ID}-ns
-kubectl describe httproute -n ${CP_INSTANCE_ID}-ns
+kubectl get httproute -n ${CP_INSTANCE_ID}-ns hybrid-proxy \
+  -o jsonpath='{.spec.hostnames}{"  "}{.spec.rules[*].matches[*].path.value}{"\n"}'
 ```
 
-Expected `hybrid-proxy` HTTPRoute (from the explicit values above):
+Expected `hybrid-proxy` HTTPRoute (rendered by `tibco-cp-base` 1.19.0+ when `dnsDomain == dnsTunnelDomain`):
 
 ```yaml
 spec:
   hostnames:
-  - "${CP_INSTANCE_ID}-tunnel.${TP_BASE_DNS_DOMAIN}"
+  - "*.${TP_BASE_DNS_DOMAIN}"
   rules:
   - matches:
     - path:
@@ -1916,14 +1900,9 @@ spec:
     backendRefs:
     - name: hybrid-proxy
       port: 105
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /
-    backendRefs:
-    - name: hybrid-proxy
-      port: 105
 ```
+
+If you still see a second `PathPrefix: /` rule, `dnsDomain` and `dnsTunnelDomain` differ in the deployed values.
 
 ---
 
@@ -2264,7 +2243,7 @@ kubectl get pods -n ${CP_INSTANCE_ID}-ns | grep -E 'bw|flogo|messaging'
 ```
 
 > [!NOTE]
-> **Chart Version Compatibility**: The capability charts should use the **same version** as the `tibco-cp-base` chart. In this guide, we're using `${CP_TIBCO_CP_BASE_VERSION}` which is set to `1.16.0`.
+> **Chart Version Compatibility**: The capability charts should use the **same version** as the `tibco-cp-base` chart. In this guide, we're using `${CP_TIBCO_CP_BASE_VERSION}` which is set to `1.20.0`.
 >
 > **Installation Time**: Each capability chart typically takes 5-10 minutes to install. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
 
@@ -2597,9 +2576,12 @@ EOF
 
 #### 9.2.3. Configure Namespace
 
+> [!NOTE]
+> Prefer the commands generated by the Control Plane UI when registering the Data Plane; they carry the exact chart versions for your Control Plane release. The examples below are pinned to the 1.20.0 charts (`dp-configure-namespace` 1.20.0, `dp-core-infrastructure` 1.20.3). `networkPolicy.createDeprecatedPolicies` was removed from `dp-configure-namespace` in 1.19.10; do not pass it. Grant `tp-scc` to the `sa` service account before installing.
+
 ```bash
 helm upgrade --install -n dp1 dp-configure-namespace tibco-platform-public/dp-configure-namespace \
-    --version 1.7.5 \
+    --version 1.20.0 \
     --set global.tibco.dataPlaneId=<your-dataplane-id> \
     --set global.tibco.subscriptionId=<your-subscription-id> \
     --set global.tibco.primaryNamespaceName=dp1 \
@@ -2608,15 +2590,14 @@ helm upgrade --install -n dp1 dp-configure-namespace tibco-platform-public/dp-co
     --set global.tibco.containerRegistry.username=<your-registry-username> \
     --set global.tibco.containerRegistry.password=<your-registry-password> \
     --set global.tibco.containerRegistry.repository=tibco-platform-docker-prod \
-    --set global.tibco.enableClusterScopedPerm=true \
-    --set networkPolicy.createDeprecatedPolicies=false
+    --set global.tibco.enableClusterScopedPerm=true
 ```
 
 #### 9.2.4. Deploy Core Infrastructure
 
 ```bash
 helm upgrade --install dp-core-infrastructure -n dp1 tibco-platform-public/dp-core-infrastructure \
-    --version 1.7.2 \
+    --version 1.20.3 \
     --set global.tibco.dataPlaneId=<your-dataplane-id> \
     --set global.tibco.subscriptionId=<your-subscription-id> \
     --set tp-tibtunnel.configure.accessKey=<your-access-key> \
@@ -3004,7 +2985,7 @@ global:
 
 ```bash
 # Step 1: Apply CRDs to the cluster
-kubectl apply -f /path/to/tibco-cp-base-1.18.0-extracted/crds/
+kubectl apply -f /path/to/tibco-cp-base-1.20.0-extracted/crds/
 
 # Step 2: Install with --skip-crds
 helm upgrade --install --wait --timeout 1h --create-namespace \

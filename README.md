@@ -1,22 +1,44 @@
 # TIBCO Platform on Azure Red Hat OpenShift (ARO) Workshop
 
-> **Current Release:** [v1.18.0](./releases/v1.18.0) | **TIBCO Platform CP Version:** 1.18.0  
+> **Current Release:** [v1.20.0](./releases/v1.20.0) | **TIBCO Platform CP Version:** 1.20.0  
 > 📋 **Release History:** See `releases` folder for all versions  
-> 🔄 **Upgrading from 1.17.0?** See the [1.18.0 Release Notes](./releases/v1.18.0#upgrade-path-from-v1170)
+> 🔄 **Upgrading from 1.18.0?** Upgrade to 1.19.0 first ([1.19.0 Release Notes](./releases/v1.19.0#upgrade-path-from-v1180)), then to 1.20.0 ([1.20.0 Release Notes](./releases/v1.20.0#upgrade-path-from-v1190))
 
 This repository provides comprehensive guides and resources for deploying **TIBCO Platform** on **Azure Red Hat OpenShift (ARO)** clusters. It covers multiple deployment scenarios from basic ARO cluster setup to full Control Plane and Data Plane deployments with observability.
 
 ## 🎯 Version Selection
 
-**⚠️ Important:** TIBCO Platform version 1.18.0 adds Gateway API controller support, namespace-level RBAC, Console-managed email configuration, and Alert Audit Trail. Choose the appropriate documentation for your deployment:
+**⚠️ Important:** TIBCO Platform 1.20.0 adds Control Plane rollback, OTLP exporters with custom headers, Flogo build Jobs, the Developer Hub MCP Catalog, and MCP Hub (Preview, TIBCO Operated Control Plane only). The intermediate 1.19.0 release removed `createDeprecatedPolicies`, fixed the Gateway API hybrid-proxy route, moved Jaeger to v2, and introduced TESSA, ActiveSpaces, and the Infra MCP Server. Upgrades go one minor version at a time. Choose the appropriate documentation for your deployment:
 
-### 🌟 Version 1.18.0 (Current - Recommended for New Deployments)
+### 🌟 Version 1.20.0 (Current - Recommended for New Deployments)
+- ✅ **Control Plane Rollback**: `helm rollback` to the previous release, including the database schema when `manageDbSchema` is `true`
+- ✅ **Chart Values**: new `global.tibco.disabledInfraCapabilities` (default `[MFTADAPTER]`); `otel-collector.enabled` default is `false` again; `createDeprecatedPolicies` gone since 1.19.0
+- ✅ **OTLP Custom Headers**: OTLP exporters and query services accept custom headers
+- ✅ **Flogo Build Jobs**: dedicated Kubernetes Jobs with their own CPU, memory, queue, and timeout settings
+- ✅ **Developer Hub MCP Catalog**: register and browse MCP servers as Backstage entities
+- ✅ **MCP Hub (Preview)**: TIBCO Operated Control Plane only; MCP Gateway runtime chart `tp-mcp-gateway`
+- ✅ **OpenShift Ready**: no SCC changes from 1.18.0; OpenShift Router remains the primary ingress
+- 📘 [Setup Overlay Guide: CP + DP (v1.20)](./howto/v1.20/how-to-cp-and-dp-aro-setup-guide)
+- 📘 [Quick Reference (v1.20)](./howto/v1.20/QUICK-REFERENCE)
+- 📋 [Release Notes (v1.20.0)](./releases/v1.20.0)
+
+### 📦 Version 1.19.0 (Previous Release - Mandatory Upgrade Hop from 1.18.0)
+- ✅ **TESSA (Preview)**: natural-language assistant, TIBCO Operated Control Plane US region only
+- ✅ **Infra MCP Server**: read-only `kubectl`/`helm` diagnostics capability per Data Plane (RBAC from `dp-configure-namespace` 1.19.10)
+- ✅ **ActiveSpaces Capability**: data grid and vector store on Kubernetes Data Planes
+- ✅ **PromQL Cards and Jaeger v2**: PromQL observability cards; Jaeger chart 4.8.2 (old traces show as red dots)
+- ✅ **Gateway API Fix**: `hybrid-proxy` HTTPRoute renders `/infra/tunnel` itself (PCP-21362)
+- ✅ **Removed Value**: `global.tibco.networkPolicy.createDeprecatedPolicies` must be deleted before upgrading
+- 📘 [Setup Overlay Guide: CP + DP (v1.19)](./howto/v1.19/how-to-cp-and-dp-aro-setup-guide)
+- 📘 [Quick Reference (v1.19)](./howto/v1.19/QUICK-REFERENCE)
+- 📋 [Release Notes (v1.19.0)](./releases/v1.19.0)
+
+### 📦 Version 1.18.0 (Previous Release)
 - ✅ **Gateway API Controller**: Support for Control Tower data planes; BW5/BW6/Flogo can use `Other` Gateway API type
 - ✅ **Namespace-Level RBAC**: Application Manager and Application Viewer scoped by capability and namespace
 - ✅ **Console-Managed Email**: Email server configuration moves from Helm values to Platform Console UI
 - ✅ **Alert Audit Trail**: System health and rule performance events recorded in the UI
 - ✅ **Developer Hub Self-Service Flows**: Reusable platform automation with customizable templates
-- ✅ **OpenShift Ready**: Optimized for ARO; no breaking SCC changes from 1.17.0
 - 📘 [Setup Overlay Guide: CP + DP (v1.18)](./howto/v1.18/how-to-cp-and-dp-aro-setup-guide)
 - 📘 [Quick Reference (v1.18)](./howto/v1.18/QUICK-REFERENCE)
 - 📋 [Release Notes (v1.18.0)](./releases/v1.18.0)
@@ -28,7 +50,6 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 - ✅ **Fluentbit Customization**: Custom log forwarding config for BW5/BW6 containers and Flogo
 - ✅ **Flogo Recipe Customization**: YAML editor for capability recipes; 3 new connectors
 - ✅ **BW5 Hawk REST API**: 31 Hawk methods exposed on port 8090 in BW5CE
-- ✅ **OpenShift Ready**: Optimized for ARO with updated SCC and Router support
 - 📘 [Setup Guide: CP + DP](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Quick Reference (v1.17)](./howto/v1.17/QUICK-REFERENCE)
 - 📋 [Release Notes (v1.17.0)](./releases/v1.17.0)
@@ -38,7 +59,6 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 - ✅ **BW6 AI Plugin 6.0.0**: RAG capabilities for AI-powered integrations
 - ✅ **Enhanced Monitoring**: Improved BW5 monitoring and observability
 - ✅ **Flogo Improvements**: Init and sidecar container support
-- ✅ **OpenShift Ready**: Optimized for ARO with enhanced SCC and Router support
 - 📘 [Setup Guide: CP + DP (v1.16)](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Quick Reference (v1.16)](./howto/v1.16/QUICK-REFERENCE)
 - 📋 [Release Notes (v1.16.0)](./releases/v1.16.0)
@@ -46,23 +66,21 @@ This repository provides comprehensive guides and resources for deploying **TIBC
 ### 📦 Version 1.15.0 (Previous Release)
 - ✅ **Latest Features**: Enhanced security, improved network policies, OpenShift Router support
 - ✅ **New Capabilities**: Event processing, updated Developer Hub 1.15.14
-- ✅ **Better Observability**: Improved monitoring and logging stack
-- ✅ **OpenShift Native**: Enhanced Security Context Constraints and Router integration
 - 📘 [Setup Guide: CP + DP (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Setup Guide: DP Only  (v1.15)](./howto/v1.15/how-to-dp-openshift-aro-aks-setup-guide)
 - 📋 [Release Notes (v1.15.0)](./releases/v1.15.0)
 
 ### 📦 Version 1.14.0 (Archived)
-- ✅ **Proven Stability**: Production-tested and widely deployed
-- ✅ **Complete Documentation**: Comprehensive battle-tested guides
 - 📘 [Setup Guide: CP + DP (v1.14)](./howto/v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
 - 📘 [Setup Guide: DP Only (v1.14)](./howto/v1.14/how-to-dp-openshift-aro-aks-setup-guide)
 - 📋 [Release Notes (v1.14.0)](./releases/v1.14.0)
 
 ### 🔄 Upgrading Between Versions
+- **From v1.19.0 → v1.20.0**: Direct upgrade supported (`scripts/1.20.0/upgrade.sh`). See [1.20.0 Release Notes](./releases/v1.20.0#upgrade-path-from-v1190)
+- **From v1.18.0 → v1.19.0**: Direct upgrade supported (`scripts/1.19.0/upgrade.sh`); remove `createDeprecatedPolicies` first. See [1.19.0 Release Notes](./releases/v1.19.0#upgrade-path-from-v1180)
+- **From v1.18.0 → v1.20.0**: Not supported directly. Upgrade to v1.19.0 first, then to v1.20.0 (or use the `MASTER-UPGRADE-README.md` sequential script in `tp-helm-charts`)
 - **From v1.17.0 → v1.18.0**: Direct upgrade supported. See [1.18.0 Release Notes](./releases/v1.18.0#upgrade-path-from-v1170)
 - **From v1.16.0 → v1.17.0**: Direct upgrade supported. See [1.17.0 Release Notes](./releases/v1.17.0#upgrade-path)
-- **From v1.15.0 → v1.17.0**: Upgrade to v1.16.0 first, then to v1.17.0
 - **From v1.15.0 → v1.16.0**: Direct upgrade supported. See [1.16.0 Release Notes](./releases/v1.16.0#upgrade-path)
 - **From v1.14.0 → v1.15.0**: TIBCO provides an automated upgrade script. See [1.15.0 Release Notes](./releases/v1.15.0#upgrade-path)
 
@@ -83,72 +101,53 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 ### 🏗️ Version-Specific Setup Guides
 
-#### Version 1.18.0 (Current Release)
-**[📖 Setup Overlay Guide: CP + DP (v1.18)](./howto/v1.18/how-to-cp-and-dp-aro-setup-guide)**
-- 🎯 **Scope**: 1.18.0-specific changes to apply on top of the shared ARO baseline guide
-- 🔧 **New Features**: Gateway API controller, namespace-level RBAC, Console-managed email, Alert Audit Trail, Developer Hub self-service flows
+#### Version 1.20.0 (Current Release)
+**[📖 Setup Overlay Guide: CP + DP (v1.20)](./howto/v1.20/how-to-cp-and-dp-aro-setup-guide)**
+- 🎯 **Scope**: 1.20.0-specific changes to apply on top of the shared ARO baseline guide
+- 🔧 **New Features**: Control Plane rollback, values changes (`disabledInfraCapabilities`, `otel-collector` default), fixed Gateway API route, OTLP custom headers, Flogo build Jobs, MCP notes
 - ⏱️ **Duration**: 30-60 minutes (overlay on top of shared guide)
 
-**[📖 Quick Reference Guide (v1.18)](./howto/v1.18/QUICK-REFERENCE)**
-- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.18.0 on ARO
-- 🔧 **New Features**: Gateway API checks, namespace RBAC checks, email Console configuration, SCC verification, Alert Audit Trail
+**[📖 Quick Reference Guide (v1.20)](./howto/v1.20/QUICK-REFERENCE)**
+- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.20.0 on ARO
+- 🔧 **New Features**: values checks, rollback commands, Gateway API checks, SCC verification, MCP RBAC checks
 - ⏱️ **Duration**: Reference guide (instant lookup)
 
-**[📖 Documentation Summary (v1.18)](./howto/v1.18/DOCUMENTATION-SUMMARY)**
-- 🎯 **Scope**: Overview of v1.18.0 updates and changes for ARO
-- 🔧 **Features**: ARO-specific update details, component version comparison, updated files list, validation checklist
+**[📖 Documentation Summary (v1.20)](./howto/v1.20/DOCUMENTATION-SUMMARY)**
+- 🎯 **Scope**: Overview of v1.19.0 and v1.20.0 updates and changes for ARO
+- 🔧 **Features**: ARO-specific update details, three-release component version comparison, updated files list, validation checklist
 - ⏱️ **Duration**: 10-15 minutes read
+
+#### Version 1.19.0 (Upgrade Hop)
+**[📖 Setup Overlay Guide: CP + DP (v1.19)](./howto/v1.19/how-to-cp-and-dp-aro-setup-guide)**
+- 🎯 **Scope**: 1.19.0-specific changes, applied between 1.18.0 and 1.20.0
+- 🔧 **Features**: `createDeprecatedPolicies` removal, `otel-collector` default, Jaeger v2, PCP-23331 workaround, Infra MCP Server, fixed Gateway API route
+- ⏱️ **Duration**: 30-60 minutes (overlay on top of shared guide)
+
+**[📖 Quick Reference Guide (v1.19)](./howto/v1.19/QUICK-REFERENCE)** and **[📖 Documentation Summary (v1.19)](./howto/v1.19/DOCUMENTATION-SUMMARY)**
+
+#### Version 1.18.0 (Previous Release)
+**[📖 Setup Overlay Guide: CP + DP (v1.18)](./howto/v1.18/how-to-cp-and-dp-aro-setup-guide)** — Gateway API controller, namespace-level RBAC, Console-managed email, Alert Audit Trail, Developer Hub self-service flows
+
+**[📖 Quick Reference Guide (v1.18)](./howto/v1.18/QUICK-REFERENCE)** and **[📖 Documentation Summary (v1.18)](./howto/v1.18/DOCUMENTATION-SUMMARY)**
 
 #### Version 1.17.0 (Previous Release)
-**[📖 Quick Reference Guide (v1.17)](./howto/v1.17/QUICK-REFERENCE)**
-- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.17.0 on ARO
-- 🔧 **New Features**: OpenSearch observability, Webhook alerts, BW6 lifecycle management, Flogo recipe customization, Fluentbit custom config
-- ⏱️ **Duration**: Reference guide (instant lookup)
-
-**[📖 Documentation Summary (v1.17)](./howto/v1.17/DOCUMENTATION-SUMMARY)**
-- 🎯 **Scope**: Overview of v1.17.0 updates and changes
-- 🔧 **Features**: OpenSearch integration, ARO-specific considerations, upgrade paths
-- ⏱️ **Duration**: 10-15 minutes read
+**[📖 Quick Reference Guide (v1.17)](./howto/v1.17/QUICK-REFERENCE)** and **[📖 Documentation Summary (v1.17)](./howto/v1.17/DOCUMENTATION-SUMMARY)**
 
 **[📖 How to Set Up ARO Cluster with Control Plane and Data Plane](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (shared baseline, includes hardened SCC configuration)
+- 🎯 **Scope**: Complete TIBCO Platform CP + DP deployment on ARO (shared baseline, includes hardened SCC configuration; now pinned to 1.20.0 charts)
 - 🔧 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, SCC hardening, CP + DP deployment
 - ⏱️ **Duration**: 3-4 hours
 
 #### Version 1.16.0 (Previous Release)
-**[📖 Quick Reference Guide (v1.16)](./howto/v1.16/QUICK-REFERENCE)**
-- 🎯 **Scope**: Quick commands and reference for TIBCO Platform 1.16.0 on ARO
-- 🔧 **New Features**: License management, BW6 AI Plugin, enhanced monitoring, Flogo init/sidecar containers
-- ⏱️ **Duration**: Reference guide (instant lookup)
-
-**[📖 Documentation Summary (v1.16)](./howto/v1.16/DOCUMENTATION-SUMMARY)**
-- 🎯 **Scope**: Overview of v1.16.0 updates and changes
-- 🔧 **Features**: Container registry updates, ARO-specific considerations, upgrade paths
-- ⏱️ **Duration**: 10-15 minutes read
+**[📖 Quick Reference Guide (v1.16)](./howto/v1.16/QUICK-REFERENCE)** and **[📖 Documentation Summary (v1.16)](./howto/v1.16/DOCUMENTATION-SUMMARY)**
 
 #### Version 1.15.0 (Previous Release)
-**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Complete TIBCO Platform 1.15.0 deployment on ARO
-- 🔧 **New Features**: Enhanced secrets management, OpenShift Router support, improved SCCs
-- ⏱️ **Duration**: 3-4 hours
-
-**[📖 How to Set Up ARO Cluster for Data Plane Only (v1.15)](./howto/v1.15/how-to-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Data Plane 1.15.0 deployment connecting to SaaS Control Plane
-- 🔧 **Features**: Simplified deployment with updated infrastructure charts
-- ⏱️ **Duration**: 1-2 hours
+**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.15)](./howto/v1.15/how-to-cp-and-dp-openshift-aro-aks-setup-guide)** and **[📖 How to Set Up ARO Cluster for Data Plane Only (v1.15)](./howto/v1.15/how-to-dp-openshift-aro-aks-setup-guide)**
 
 #### Version 1.14.0 (Previous Release)
-**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.14)](./howto/v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Complete TIBCO Platform 1.14.0 deployment on ARO
-- 📋 **Features**: Azure environment preparation, PostgreSQL, DNS, certificates, CP + DP deployment
-- ⏱️ **Duration**: 3-4 hours
+**[📖 How to Set Up ARO Cluster with Control Plane and Data Plane (v1.14)](./howto/v1.14/how-to-cp-and-dp-openshift-aro-aks-setup-guide)** and **[📖 How to Set Up ARO Cluster for Data Plane Only (v1.14)](./howto/v1.14/how-to-dp-openshift-aro-aks-setup-guide)**
 
-**[📖 How to Set Up ARO Cluster for Data Plane Only (v1.14)](./howto/v1.14/how-to-dp-openshift-aro-aks-setup-guide)**
-- 🎯 **Scope**: Data Plane 1.14.0 deployment connecting to SaaS Control Plane
-- 📋 **Features**: Simplified ARO setup, DP configurations, capability provisioning
-- ⏱️ **Duration**: 1-2 hours
-
-### 🔍 Shared Documentation (Compatible with Both Versions)
+### 🔍 Shared Documentation (Compatible with All Versions)
 
 #### [🗺️ Topology Options Guide](./howto/topology-options)
 **Control Plane and Data Plane topology patterns for all environments**
@@ -204,7 +203,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 **Comprehensive pre-installation requirements checklist**
 - 🎯 **Scope**: Complete prerequisites for Control Plane and Data Plane installation
 - 🔧 **Features**:
-  - Kubernetes/OpenShift cluster requirements (CNCF certified)
+  - Kubernetes/OpenShift cluster requirements (CNCF certified; TIBCO certifies OpenShift Container Platform 4.16.30 for Control Plane 1.20.0)
   - PostgreSQL 16 database specifications
   - Storage, networking, and DNS requirements
   - Certificate and security requirements
@@ -243,7 +242,7 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 
 #### [📄 Environment Variables Script](./howto/aks-aro-openshift-env-variables.sh)
 **Centralized environment configuration**
-- 🎯 **Scope**: All required environment variables for TIBCO Platform deployment
+- 🎯 **Scope**: All required environment variables for TIBCO Platform deployment (`CP_TIBCO_CP_BASE_VERSION=1.20.0`)
 - 🔧 **Features**:
   - Azure and ARO cluster variables
   - TIBCO Platform specific configurations
@@ -280,6 +279,8 @@ Configure comprehensive monitoring and logging using Prometheus and Elastic Stac
 - 📋 **Use Case**: Diagnosing and resolving deployment failures, air-gapped/custom registry environments, OpenShift SCC issues
 - ⏱️ **Per-issue resolution**: 15–60 minutes
 
+If an upgrade to 1.20.0 fails, use the Control Plane rollback procedure in the [v1.20 overlay](./howto/v1.20/how-to-cp-and-dp-aro-setup-guide#control-plane-rollback).
+
 
 ## 🎯 Deployment Scenarios
 
@@ -304,7 +305,7 @@ graph TD
 - ✅ Development and testing environments
 - ✅ Proof of concepts and demos
 
-**Follow:** [Complete Setup Guide](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide)
+**Follow:** [Complete Setup Guide](./howto/how-to-cp-and-dp-openshift-aro-aks-setup-guide) plus the [v1.20 overlay](./howto/v1.20/how-to-cp-and-dp-aro-setup-guide)
 
 ### Scenario 2: ARO Data Plane Connected to SaaS Control Plane
 ```mermaid
@@ -350,29 +351,31 @@ graph TD
 ## 🛠️ Architecture Overview
 
 ### Control Plane Components
-- **Platform Bootstrap**: Core platform services and operators
-- **Platform Base**: Main Control Plane services (IDM, orchestrator, web server)
+- **Platform Base (`tibco-cp-base`)**: Unified chart with core platform services, operators, IDM, orchestrator, router, hybrid proxy, and web server
 - **Integration Capabilities**: BWCE and Flogo integration services
-- **Observability**: Built-in monitoring and alerting
+- **Observability**: Built-in monitoring and alerting (Jaeger v2 since 1.19.0)
 
 ### Data Plane Components
-- **Core Infrastructure**: Runtime environment for applications
-- **Capability Provisioning**: BWCE, Flogo, and other runtime capabilities
+- **Core Infrastructure**: Runtime environment for applications (`dp-configure-namespace`, `dp-core-infrastructure`)
+- **Capability Provisioning**: BWCE, Flogo, EMS, ActiveSpaces, Developer Hub, Hawk, Infra MCP Server
 - **Observability Integration**: Metrics, logs, and traces collection
 - **Hybrid Connectivity**: Secure connection to Control Plane
 
 ### Shared Infrastructure
 - **ARO Cluster**: Azure Red Hat OpenShift cluster
-- **Storage Classes**: Azure Files and Disk storage integration
-- **Ingress Controller**: OpenShift router with wildcard domain support
+- **Storage Classes**: Azure Files and Disk storage integration (Azure Disk for Developer Hub PostgreSQL)
+- **Ingress Controller**: OpenShift router with wildcard domain support (Gateway API optional)
 - **DNS Management**: Azure DNS with wildcard entries
 - **Certificate Management**: Let's Encrypt integration
 
 ## 🔗 Additional Resources
 
 ### TIBCO Platform Documentation
-- [TIBCO Platform Official Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm)
-- [TIBCO Platform Proxy Configuration](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/updating-proxy-configuration.htm)
+- [TIBCO Platform Control Plane 1.20.0 Documentation](https://docs.tibco.com/pub/platform-cp/1.20.0/doc/html/Default.htm)
+- [TIBCO Platform Control Plane 1.19.0 Documentation](https://docs.tibco.com/pub/platform-cp/1.19.0/doc/html/Default.htm)
+- [TIBCO Platform Official Documentation (latest)](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm)
+- [TIBCO Platform Proxy Configuration](https://docs.tibco.com/pub/platform-cp/1.20.0/doc/html/UserGuide/updating-proxy-configuration.htm)
+- [TIBCO tp-helm-charts repository](https://github.com/TIBCOSoftware/tp-helm-charts) — [ARO workshop assets](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/docs/workshop/aro%20(Azure%20Red%20Hat%20OpenShift)) and [upgrade scripts](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/scripts)
 
 ### Cloud Provider Documentation
 - [Azure Red Hat OpenShift Documentation](https://docs.microsoft.com/en-us/azure/openshift/)
@@ -381,7 +384,8 @@ graph TD
 
 ### Related Workshop Repositories
 - [TIBCO Platform on AKS Workshop](https://github.com/tibco-bnl/workshop-tp-aks) - Azure Kubernetes Service deployment guides
-  - [AKS Firewall Requirements](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements.html)
+- [TIBCO Platform on EKS Workshop](https://github.com/tibco-bnl/workshop-tp-eks) - Amazon EKS deployment guides
+  - [AKS Firewall Requirements](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements-aks.html)
   - [EKS Firewall Requirements](https://tibco-bnl.github.io/workshop-tp-aks/docs/firewall-requirements-eks.html)
 
 ### Observability and Monitoring
@@ -405,3 +409,5 @@ This project is licensed under the terms specified in the LICENSE file.
 ---
 
 > **Note**: This repository contains actual steps and configurations used in real deployments. All examples use production-like configurations but should be adapted for your specific environment and security requirements.
+
+**Last updated:** September 21, 2026

@@ -5,7 +5,7 @@ title: TIBCO Platform v1.18.0 Quick Reference (ARO)
 
 # TIBCO Platform v1.18.0 Quick Reference — ARO
 
-**TIBCO Platform Version**: 1.18.0 | **Platform**: Azure Red Hat OpenShift | **Status**: Current release
+**TIBCO Platform Version**: 1.18.0 | **Platform**: Azure Red Hat OpenShift | **Status**: Previous release
 
 ## Essential Commands
 
