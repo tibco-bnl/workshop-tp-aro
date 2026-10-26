@@ -277,7 +277,73 @@ For detailed step-by-step instructions, refer to the [TIBCO Platform observabili
 
 ## 4\. Configure Observability in TIBCO Platform
 
-Do not manually create Elasticsearch indices, index templates, or ILM policies by applying JSON examples from this workshop. For the supported steps to create and prepare log and trace servers (including the required indices), follow the official [Preparing Logs and Traces Servers documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/preparing-logs-and-traces-servers.htm?Highlight=user-app-index). For configuring and using logs, traces, and metrics in TIBCO Platform, see [Observability in TIBCO Control Plane](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/observability-in-tibco-platform.htm?TocPath=Observability%2520in%2520TIBCO%2520Control%2520Plane%257C_____0).
+For the supported steps to create and prepare log and trace servers (including the required indices), follow the official [Preparing Logs and Traces Servers documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/preparing-logs-and-traces-servers.htm?Highlight=user-app-index). For configuring and using logs, traces, and metrics in TIBCO Platform, see [Observability in TIBCO Control Plane](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/observability-in-tibco-platform.htm?TocPath=Observability%2520in%2520TIBCO%2520Control%2520Plane%257C_____0).
+
+### Minimal Elasticsearch ILM and Rollover Reference
+
+The following snippets illustrate the essential user-log ILM settings; they are not complete index templates or a replacement for the official setup steps. For the full configuration (including mappings), refer to the [`dp-config-es` chart templates](https://github.com/TIBCOSoftware/tp-helm-charts/tree/main/charts/dp-config-es/templates), particularly [`index-user-apps-lifecycle.yaml`](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/charts/dp-config-es/templates/index-user-apps-lifecycle.yaml) and [`index-template-user-apps.yaml`](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/charts/dp-config-es/templates/index-template-user-apps.yaml). When using alias-based rollover, apply the warning below: do not copy a template-level `user-apps` alias into this setup.
+
+A user-log lifecycle policy can roll over an index after it reaches the configured age or size, then delete it after the retention period:
+
+```json
+{
+  "policy": {
+    "phases": {
+      "hot": {
+        "min_age": "0ms",
+        "actions": {
+          "rollover": {
+            "max_primary_shard_size": "50gb",
+            "max_age": "7d"
+          }
+        }
+      },
+      "delete": {
+        "min_age": "60d",
+        "actions": {
+          "delete": {}
+        }
+      }
+    }
+  }
+}
+```
+
+The matching index template settings refer to that policy and the write alias. Keep the alias out of the template's `aliases` block; define it on the initial index instead:
+
+!!! warning "Avoid duplicate user-apps aliases"
+    A template entry such as `"aliases": { "user-apps": {} }` can make `POST /user-apps/_rollover` fail with an `illegal_argument_exception`: the template applies the alias to the new index while the rollover operation also adds it. Remove `user-apps` from the index template's Aliases section. Keep `index.lifecycle.rollover_alias: user-apps` in the index settings, and assign `user-apps` as the write alias on the initial index as shown below.
+
+```json
+{
+  "index": {
+    "lifecycle": {
+      "name": "user-index-60d-lifecycle-policy",
+      "rollover_alias": "user-apps"
+    },
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "5s"
+  }
+}
+```
+
+For a new user-log setup, bootstrap the write alias on the initial index:
+
+```http
+PUT /user-app-000001
+{
+  "aliases": {
+    "user-apps": {
+      "is_write_index": true
+    }
+  }
+}
+```
+
+In TIBCO Platform's Logs Server configuration, use `user-apps`, not the concrete backing index name. For an existing setup, assign the alias to the existing active index rather than attempting to create an index that already exists.
+
+Jaeger uses a different index pattern: its Elasticsearch backend writes date-named daily indices. The chart's Jaeger ILM policy therefore uses age-based retention without a rollover action or `rollover_alias`. Refer to [`index-jaeger-lifecycle.yaml`](https://github.com/TIBCOSoftware/tp-helm-charts/blob/main/charts/dp-config-es/templates/index-jaeger-lifecycle.yaml) and the Jaeger service and span templates for the current configuration; do not apply the user-log rollover settings to Jaeger.
 
 When configuring the Logs Server in TIBCO Platform, use the configured log alias (for example, `user-apps`) rather than a concrete backing index name such as `user-app-1`. The screenshots later in this guide are for representation only; screens may differ in newer platform versions.
 
