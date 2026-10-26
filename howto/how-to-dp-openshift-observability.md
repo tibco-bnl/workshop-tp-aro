@@ -335,12 +335,7 @@ Define a lifecycle policy for user application logs (e.g., hot phase with rollov
       }
     }
     ```
-  * **Alias:**
-    ```json
-    {
-      "user-apps": {}
-    }
-    ```
+  * **Aliases:** Leave the template's Aliases section empty. The write alias is assigned to the initial index below; do not define `user-apps` in the template.
   * **Template Preview (Consolidated):**
     ```json
     {
@@ -379,11 +374,45 @@ Define a lifecycle policy for user application logs (e.g., hot phase with rollov
               }
             }
           }
-        },
-        "aliases": { "user-apps": {} }
+        }
       }
     }
     ```
+
+Create the initial index before sending logs so the rollover alias has a write index. In Kibana **Dev Tools**, run:
+
+```http
+PUT /user-app-000001
+{
+  "aliases": {
+    "user-apps": {
+      "is_write_index": true
+    }
+  }
+}
+```
+
+The index name uses the zero-padded numbering convention. Verify that the alias points to it as the write index:
+
+```http
+GET /_alias/user-apps
+```
+
+The response should include:
+
+```json
+{
+  "user-app-000001": {
+    "aliases": {
+      "user-apps": {
+        "is_write_index": true
+      }
+    }
+  }
+}
+```
+
+Keep `"rollover_alias": "user-apps"` in the index settings, and do not add an `aliases` block for `user-apps` to the template. To test rollover, run `POST /user-apps/_rollover`; new logs should continue to be written through the alias to the new index. For an existing installation, assign `user-apps` as the write alias on the active index instead of creating an index that already exists.
 
 -----
 
@@ -946,6 +975,9 @@ Network Policies Details for Data Plane Namespace | [Data Plane Network Policies
 
 ## Screenshots adding observability: 
 
+!!! note "Use the log alias"
+    These screenshots are for representation only; screens may differ in newer platform versions. Whenever a Logs Server screen asks for **Log Index**, enter `user-apps` (the write alias), not an index name such as `user-app-1`. Some screenshots may show the old index name.
+
 ### Screenshots
 
 Below are screenshots illustrating the observability setup steps on OpenShift ARO. Images are shown in the order they appear in the folder.
@@ -989,5 +1021,3 @@ Do not use any username password.
 #### 7. Observability Resouce Trace Server
 
 ![observability-aro-traces-server config](../docs/diagrams/openshift-azure-aro-dp-observability/observability-aro-traces-server.png)
-
-
