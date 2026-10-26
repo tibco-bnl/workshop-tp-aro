@@ -277,7 +277,7 @@ For detailed step-by-step instructions, refer to the [TIBCO Platform observabili
 
 ## 4\. Configure Observability in TIBCO Platform
 
-Do not manually create Elasticsearch indices, index templates, or ILM policies by applying JSON examples from this workshop. After installing the observability backend, use the official [Observability in TIBCO Control Plane documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/observability-in-tibco-platform.htm?TocPath=Observability%2520in%2520TIBCO%2520Control%2520Plane%257C_____0) for the supported steps to configure and use logs, traces, and metrics in TIBCO Platform.
+Do not manually create Elasticsearch indices, index templates, or ILM policies by applying JSON examples from this workshop. For the supported steps to create and prepare log and trace servers (including the required indices), follow the official [Preparing Logs and Traces Servers documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/preparing-logs-and-traces-servers.htm?Highlight=user-app-index). For configuring and using logs, traces, and metrics in TIBCO Platform, see [Observability in TIBCO Control Plane](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/observability-in-tibco-platform.htm?TocPath=Observability%2520in%2520TIBCO%2520Control%2520Plane%257C_____0).
 
 When configuring the Logs Server in TIBCO Platform, use the configured log alias (for example, `user-apps`) rather than a concrete backing index name such as `user-app-1`. The screenshots later in this guide are for representation only; screens may differ in newer platform versions.
 
