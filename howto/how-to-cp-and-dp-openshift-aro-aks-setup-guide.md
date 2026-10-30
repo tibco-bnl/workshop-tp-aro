@@ -11,14 +11,13 @@ title: TIBCO Platform Control Plane and Data Plane Setup on ARO
 This document is with extra details while following the above document and make all the things working.
 
 > [!NOTE]
-> **Version 1.20.0 Update** (September 21, 2026): This shared baseline now targets TIBCO Platform Control Plane 1.20.0. Release-specific details live in the [v1.20 overlay](./v1.20/how-to-cp-and-dp-aro-setup-guide); the [v1.19 overlay](./v1.19/how-to-cp-and-dp-aro-setup-guide) is the mandatory upgrade hop from 1.18.0. Key changes since 1.18.0:
-> - `CP_TIBCO_CP_BASE_VERSION` is `1.20.0`; Data Plane examples use `dp-configure-namespace` 1.20.0 and `dp-core-infrastructure` 1.20.3
+> **Version 1.21.0 Update**: This shared baseline targets TIBCO Platform Control Plane 1.21.0. See the [1.21 quick reference](./v1.21/QUICK-REFERENCE) and [release notes](../releases/v1.21.0); the [v1.20 overlay](./v1.20/how-to-cp-and-dp-aro-setup-guide) and [v1.19 overlay](./v1.19/how-to-cp-and-dp-aro-setup-guide) are historical.
+> - `CP_TIBCO_CP_BASE_VERSION` is `1.21.0`; Data Plane examples use `dp-configure-namespace` 1.21.4 and `dp-core-infrastructure` 1.21.4
 > - `global.tibco.networkPolicy.createDeprecatedPolicies` (tibco-cp-base) and `networkPolicy.createDeprecatedPolicies` (dp-configure-namespace) were removed in 1.19.0; delete them from existing values files and saved commands
-> - `otel-collector.enabled` chart default is `false` in 1.20.0 (it was `true` in 1.19.0); this guide sets it explicitly
-> - New `global.tibco.disabledInfraCapabilities` value in 1.20.0 (chart default `[MFTADAPTER]`)
+> - Review `otel-collector.enabled` and `global.tibco.disabledInfraCapabilities` explicitly in the 1.21 values file; the 1.21 assistant does not transform values
 > - Gateway API: since 1.19.0 the `hybrid-proxy` HTTPRoute renders `/infra/tunnel` itself, so simplified DNS no longer needs hostname separation (PCP-21362 fixed); OpenShift Routes remain the primary ingress
-> - Control Plane rollback via `helm rollback` is supported from 1.20.0; record `helm history` before upgrading
-> - No SCC changes; email stays Console-managed (since 1.18.0); simplified DNS (single-level subdomains such as `admin.baseURL`) and the unified `tibco-cp-base` chart remain the baseline
+> - 1.21 adds per-Data-Plane hybrid connectivity/controller selection, custom registry Kubernetes Secret authentication, self-hosted MCP Hub, Maintenance Mode, and other features described in the release notes
+> - Use Control Plane-generated Data Plane commands and preserve required `tp-scc` grants; email remains Console-managed (since 1.18.0)
 
 Note: This document is copy of gh-pages doc from [here:](https://tibco-bnl.github.io/workshop-tibco-platform/docs/howto/how-to-dp-openshift-aro-aks-setup-guide.html#get-openshift-ingress-domain) hence links in table of contents will not work if you are viewing in google docs. 
 
@@ -721,10 +720,10 @@ export TP_LOGSERVER_PASSWORD=""
 # CONTAINER REGISTRY VARIABLES
 # ========================================
 ## Container Registry variables (shared by both Control Plane and Data Plane)
-export TP_CONTAINER_REGISTRY_URL="csgprdeuwrepoedge.jfrog.io" # jfrog edge node url us-west-2 region, replace with container registry url as per your deployment region
+export TP_CONTAINER_REGISTRY_URL="csgprdusw2reposaas.jfrog.io" # TIBCO Platform registry for current releases; verify region-specific access
 export TP_CONTAINER_REGISTRY_USER="" # replace with your container registry username
 export TP_CONTAINER_REGISTRY_PASSWORD="" # replace with your container registry password
-export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-prod" # replace with your container registry repository
+export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-dev" # replace with your private mirror repository when applicable
 
 # ========================================
 # HELM CHART CONFIGURATION VARIABLES
@@ -753,7 +752,7 @@ export CP_TLS_SECRET_NAME="cp-tls-cert" # TLS secret for Control Plane (simplifi
 # export CP_TUNNEL_TLS_SECRET_NAME="custom-tunnel-tls"
 
 # Control Plane chart versions
-export CP_TIBCO_CP_BASE_VERSION=1.20.0
+export CP_TIBCO_CP_BASE_VERSION=1.21.0
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # storage size for Control Plane components
@@ -1799,7 +1798,7 @@ hybrid-proxy:
       namespace: ${TP_GATEWAY_NAMESPACE}
 
 otel-collector:
-  enabled: true         # set explicitly: chart default is false in 1.20.0 (true in 1.19.0); requires a log server
+  enabled: true         # set explicitly; requires a reachable Elasticsearch/OpenSearch log server
 
 router-operator:
   enabled: true
@@ -2201,7 +2200,7 @@ helm upgrade --install --wait --timeout 15m \
 # Install EMS (Messaging) capability chart
 helm upgrade --install --wait --timeout 15m \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-messaging ${HELM_URL}/tibco-cp-messaging \
-  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  --version "${CP_TIBCO_CP_MESSAGING_VERSION}" \
   -f tibco-cp-base-values-merged.yaml
 ```
 
@@ -2223,7 +2222,7 @@ helm upgrade --install --wait --timeout 15m \
 
 helm upgrade --install --wait --timeout 15m \
   -n ${CP_INSTANCE_ID}-ns tibco-cp-messaging ${HELM_URL}/tibco-cp-messaging \
-  --version "${CP_TIBCO_CP_BASE_VERSION}" \
+  --version "${CP_TIBCO_CP_MESSAGING_VERSION}" \
   -f capability-charts-values.yaml
 ```
 
@@ -2243,7 +2242,7 @@ kubectl get pods -n ${CP_INSTANCE_ID}-ns | grep -E 'bw|flogo|messaging'
 ```
 
 > [!NOTE]
-> **Chart Version Compatibility**: The capability charts should use the **same version** as the `tibco-cp-base` chart. In this guide, we're using `${CP_TIBCO_CP_BASE_VERSION}` which is set to `1.20.0`.
+> **Chart Version Compatibility**: Capability chart versions can differ from `tibco-cp-base`. This guide uses 1.21.0 for BW and Flogo and `CP_TIBCO_CP_MESSAGING_VERSION=1.21.23` for Messaging; use the official artifact manifest for any additional capability.
 >
 > **Installation Time**: Each capability chart typically takes 5-10 minutes to install. The `--wait` flag ensures Helm waits for all resources to be ready before completing.
 
@@ -2577,11 +2576,11 @@ EOF
 #### 9.2.3. Configure Namespace
 
 > [!NOTE]
-> Prefer the commands generated by the Control Plane UI when registering the Data Plane; they carry the exact chart versions for your Control Plane release. The examples below are pinned to the 1.20.0 charts (`dp-configure-namespace` 1.20.0, `dp-core-infrastructure` 1.20.3). `networkPolicy.createDeprecatedPolicies` was removed from `dp-configure-namespace` in 1.19.10; do not pass it. Grant `tp-scc` to the `sa` service account before installing.
+> Prefer the commands generated by the Control Plane UI when registering the Data Plane; they carry the exact chart versions and per-Data-Plane connectivity settings. The examples below use `dp-configure-namespace` and `dp-core-infrastructure` 1.21.4. `networkPolicy.createDeprecatedPolicies` was removed from `dp-configure-namespace` in 1.19.10; do not pass it. Grant `tp-scc` to the `sa` service account before installing.
 
 ```bash
 helm upgrade --install -n dp1 dp-configure-namespace tibco-platform-public/dp-configure-namespace \
-    --version 1.20.0 \
+    --version 1.21.4 \
     --set global.tibco.dataPlaneId=<your-dataplane-id> \
     --set global.tibco.subscriptionId=<your-subscription-id> \
     --set global.tibco.primaryNamespaceName=dp1 \
@@ -2589,7 +2588,7 @@ helm upgrade --install -n dp1 dp-configure-namespace tibco-platform-public/dp-co
     --set global.tibco.containerRegistry.url=<your-registry-url> \
     --set global.tibco.containerRegistry.username=<your-registry-username> \
     --set global.tibco.containerRegistry.password=<your-registry-password> \
-    --set global.tibco.containerRegistry.repository=tibco-platform-docker-prod \
+    --set global.tibco.containerRegistry.repository=tibco-platform-docker-dev \
     --set global.tibco.enableClusterScopedPerm=true
 ```
 
@@ -2597,14 +2596,14 @@ helm upgrade --install -n dp1 dp-configure-namespace tibco-platform-public/dp-co
 
 ```bash
 helm upgrade --install dp-core-infrastructure -n dp1 tibco-platform-public/dp-core-infrastructure \
-    --version 1.20.3 \
+    --version 1.21.4 \
     --set global.tibco.dataPlaneId=<your-dataplane-id> \
     --set global.tibco.subscriptionId=<your-subscription-id> \
     --set tp-tibtunnel.configure.accessKey=<your-access-key> \
     --set tp-tibtunnel.connect.url=<your-tibtunnel-url> \
     --set global.tibco.serviceAccount=sa \
     --set global.tibco.containerRegistry.url=<your-registry-url> \
-    --set global.tibco.containerRegistry.repository=tibco-platform-docker-prod \
+    --set global.tibco.containerRegistry.repository=tibco-platform-docker-dev \
     --set global.proxy.noProxy='' \
     --set global.logging.fluentbit.enabled=true
 ```
@@ -2985,7 +2984,7 @@ global:
 
 ```bash
 # Step 1: Apply CRDs to the cluster
-kubectl apply -f /path/to/tibco-cp-base-1.20.0-extracted/crds/
+kubectl apply -f /path/to/tibco-cp-base-1.21.0-extracted/crds/
 
 # Step 2: Install with --skip-crds
 helm upgrade --install --wait --timeout 1h --create-namespace \
@@ -3242,4 +3241,3 @@ oc get routes -n ${CP_INSTANCE_ID}-ns
 ---
 
 **📝 Note**: This checklist serves as a comprehensive verification tool. Mark each item as complete (☑️) as you progress through the deployment to ensure nothing is missed.
-

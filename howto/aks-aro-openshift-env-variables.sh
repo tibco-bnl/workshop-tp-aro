@@ -88,10 +88,10 @@ export TP_LOGSERVER_PASSWORD=""
 # CONTAINER REGISTRY VARIABLES
 # ========================================
 # Container Registry variables (shared by both Control Plane and Data Plane)
-export TP_CONTAINER_REGISTRY_URL="csgprdeuwrepoedge.jfrog.io" # JFrog edge node URL
+export TP_CONTAINER_REGISTRY_URL="csgprdusw2reposaas.jfrog.io" # Current TIBCO Platform image registry
 export TP_CONTAINER_REGISTRY_USER=""                          # Replace with your container registry username
 export TP_CONTAINER_REGISTRY_PASSWORD=""                      # Replace with your container registry password
-export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-prod" # Container registry repository
+export TP_CONTAINER_REGISTRY_REPOSITORY="tibco-platform-docker-dev" # Current TIBCO Platform image repository
 
 # ========================================
 # HELM CHART CONFIGURATION VARIABLES
@@ -110,7 +110,8 @@ export CP_MY_DNS_DOMAIN="${CP_INSTANCE_ID}-my.${TP_DOMAIN}"       # Domain for C
 export CP_TUNNEL_DNS_DOMAIN="${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}" # Domain for hybrid connectivity
 
 # Control Plane chart versions (unified chart since 1.13.0)
-export CP_TIBCO_CP_BASE_VERSION="1.20.0"
+export CP_TIBCO_CP_BASE_VERSION="1.21.0"
+export CP_TIBCO_CP_MESSAGING_VERSION="1.21.23"
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # Storage size for Control Plane components
@@ -143,7 +144,7 @@ export CP_DB_USERNAME="postgres"
 # Email server configuration variables
 # NOTE (1.18.0+): Email provider is configured from the TIBCO Platform Console UI after installation.
 # Do NOT pass emailServerType, emailServer, fromAndReplyToEmailAddress, or related values
-# to tibco-cp-base Helm values since 1.18.0 (current: 1.20.0) — they are deprecated and removed by the 1.18.0 upgrade assistant.
+# to tibco-cp-base Helm values since 1.18.0 — they are deprecated and removed by the 1.18.0 upgrade assistant.
 # Keep MailDev running if used for workshop SMTP testing; configure its host/port in the Console.
 export CP_EMAIL_SERVER_TYPE="smtp"
 export CP_EMAIL_SMTP_SERVER="development-mailserver.tibco-ext.svc.cluster.local" # MailDev server (configure from Console since 1.18.0)
