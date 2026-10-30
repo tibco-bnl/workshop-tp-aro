@@ -579,47 +579,18 @@ The following are not required for all deployments but apply in specific custome
 
 > **Version pinning:** Mirror the exact chart versions listed in the setup guide. Do not rely on `latest` tags.
 
-### 10.2 Non-Well-Known CA Certificates for Data Plane Ingress Registration
+### 10.2 1.21 Data Plane Registration Connectivity and Certificate Trust
 
-**When this applies:** If the Data Plane ingress TLS certificate is signed by an **internal or private Certificate Authority** (not a public CA such as Let's Encrypt, DigiCert, or Comodo), the TIBCO Control Plane cannot trust the Data Plane's HTTPS endpoint without being explicitly told about the CA.
+Hybrid connectivity is enabled by default in the 1.21 Data Plane registration form. Disable it only when the Control Plane can reach the Data Plane directly. When disabled, the **Reachable DP URL** must identify the Data Plane `cpdpproxy` service (for example, `http://cpdpproxy.<dp-namespace>.svc.cluster.local`), and the Control Plane must be able to resolve and reach that endpoint. This is not the OpenShift router domain or application hostname.
 
-**Background:** During Data Plane registration, the provisioner agent must be able to make a verified HTTPS connection to the Control Plane, and the Control Plane must trust the Data Plane ingress endpoint for health checks and capability provisioning. On ARO, the OpenShift router uses its own auto-generated wildcard certificate by default — this certificate is signed by the cluster's internal CA, which is **not** publicly trusted, and therefore requires the CA certificate to be provided during Data Plane registration.
+The 1.21 **Data Plane Certificate** fields describe a different direction of trust: use the Kubernetes Secret name and key when the Data Plane must trust a custom Control Plane certificate. The registration guide does not describe this as a CA-bundle field for making the Control Plane trust the OpenShift router certificate. Do not extract or provide the ARO `router-ca` on the basis of the older guidance in this checklist; validate any ingress-certificate trust requirement against the current product documentation.
 
-**Registration field:** During Data Plane registration in the Control Plane UI (**Settings → Infrastructure → Data Planes → Register Data Plane**), the wizard includes a **TLS Certificate / CA Bundle** field. This field is required when the Data Plane ingress uses a non-public CA certificate.
+- [ ] Decide whether hybrid connectivity remains enabled or whether the Control Plane has verified direct access to the Data Plane.
+- [ ] If disabling hybrid connectivity, record and test the Data Plane `cpdpproxy` URL from the Control Plane network.
+- [ ] If the Control Plane uses a custom certificate, identify the certificate Secret name and key that the Data Plane must trust.
+- [ ] Keep the OpenShift Router ingress configuration and required `tp-scc` grants; these do not substitute for the Reachable DP URL or certificate trust settings.
 
-**What to prepare:**
-
-| Certificate Type | CA Cert Required? | What to Provide |
-|------------------|-------------------|-----------------|
-| Public CA (Let's Encrypt, DigiCert, etc.) | No | Nothing extra needed |
-| Internal PKI / Corporate CA | **Yes** | PEM-encoded CA certificate from your internal PKI chain |
-| OpenShift default wildcard cert (internal CA) | **Yes** | OpenShift cluster ingress CA certificate |
-| Self-signed certificate | **Yes** | The self-signed certificate itself (it is its own CA) |
-
-**Extract the OpenShift ingress CA certificate (if using the default OpenShift router cert):**
-
-```bash
-# Extract the OpenShift ingress CA certificate
-oc get secret router-ca -n openshift-ingress-operator \
-  -o jsonpath='{.data.tls\.crt}' | base64 -d > openshift-ingress-ca.pem
-
-# Verify the certificate
-openssl x509 -in openshift-ingress-ca.pem -text -noout | grep -E "Subject:|Issuer:|Not After"
-```
-
-- [ ] Identify whether your Data Plane ingress TLS certificate uses a public or private CA
-- [ ] If private CA: obtain the **PEM-encoded CA certificate** (starts with `-----BEGIN CERTIFICATE-----`)
-  - For OpenShift default router: extract from `router-ca` secret as shown above
-  - For internal PKI: get the intermediate or root CA cert from your PKI team
-  - For self-signed: use the self-signed certificate file itself
-- [ ] Confirm the cert is accessible on the installation machine at registration time
-
-> **Reference:** [Registering a Data Plane — TIBCO Platform Documentation](https://docs.tibco.com/pub/platform-cp/latest/doc/html/Default.htm#UserGuide/registering-a-data-plane.htm)
-
-**Impact if omitted when using private CA:**
-- The provisioner agent cannot establish a verified connection to the Control Plane
-- Capability provisioning (BWCE, Flogo, EMS) fails with TLS errors
-- Data Plane shows as disconnected in the Control Plane UI
+> **Reference:** [Registering a Kubernetes Cluster — TIBCO Platform 1.21](https://docs.tibco.com/pub/platform-cp/1.21.0/doc/html/UserGuide/registering-an-existing-kubernetes-cluster.htm)
 
 ### 10.3 PostgreSQL SSL Certificate
 
