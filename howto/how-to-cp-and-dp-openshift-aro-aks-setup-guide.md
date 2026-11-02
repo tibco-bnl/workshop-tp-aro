@@ -447,6 +447,65 @@ tp-scc   false   ["NET_BIND_SERVICE"]   MustRunAs   MustRunAsNonRoot  MustRunAs 
 
 ```
 
+### Optional alternative: stricter non-root SCC (`tp-scc-secure`)
+
+The following is an alternative to the `tp-scc` configuration above. It creates a separate SCC and leaves the existing `tp-scc` unchanged. The alternative has no elevated priority, enforces non-root UIDs, uses namespace allocation for `fsGroup` and supplemental groups, and does not allow inline `csi` volumes.
+
+```bash
+oc apply -f - <<EOF
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: tp-scc-secure
+  annotations:
+    kubernetes.io/description: tp-scc-secure allows non-root UIDs and namespace-allocated fsGroup and supplemental groups for TIBCO workloads.
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities:
+  - NET_BIND_SERVICE
+defaultAddCapabilities: null
+fsGroup:
+  type: MustRunAs
+groups: []
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - ALL
+runAsUser:
+  type: MustRunAsNonRoot
+seLinuxContext:
+  type: MustRunAs
+seccompProfiles:
+  - runtime/default
+supplementalGroups:
+  type: MustRunAs
+users: []
+volumes:
+  - configMap
+  - secret
+  - projected
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+EOF
+```
+
+For each service account using this option, remove its existing `tp-scc` grant and grant `tp-scc-secure` instead:
+
+```bash
+oc adm policy remove-scc-from-user tp-scc \
+  system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+oc adm policy add-scc-to-user tp-scc-secure \
+  system:serviceaccount:${CP_INSTANCE_ID}-ns:${CP_INSTANCE_ID}-sa
+```
+
+Repeat for the `default` account, Data Plane accounts, and any capability accounts as applicable. Do not grant both SCCs to the same service account. If non-root enforcement is required, ensure that those accounts are not granted another SCC such as `anyuid`.
+
 > [!WARNING]
 > **Helm Chart Compatibility Analysis — FluentBit Sidecar Conflict**
 >

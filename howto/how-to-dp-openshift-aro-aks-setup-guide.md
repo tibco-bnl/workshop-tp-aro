@@ -331,6 +331,8 @@ This custom Security Context Constraint is necessary because OpenShift enforces 
 
 ## Step 7: Prepare Data Plane Environment
 
+For an optional stricter, non-root-only SCC, see the [`tp-scc-secure` alternative](how-to-cp-and-dp-openshift-aro-aks-setup-guide#optional-alternative-stricter-non-root-scc-tp-scc-secure) in the shared CP and DP guide. Use it instead of `tp-scc` for the selected service accounts.
+
 Set additional variables (if you are still in the same terminal window, else export all the env variables again):
 
 ```bash
