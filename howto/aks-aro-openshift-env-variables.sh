@@ -110,8 +110,8 @@ export CP_MY_DNS_DOMAIN="${CP_INSTANCE_ID}-my.${TP_DOMAIN}"       # Domain for C
 export CP_TUNNEL_DNS_DOMAIN="${CP_INSTANCE_ID}-tunnel.${TP_DOMAIN}" # Domain for hybrid connectivity
 
 # Control Plane chart versions (unified chart since 1.13.0)
-export CP_TIBCO_CP_BASE_VERSION="1.21.0"
-export CP_TIBCO_CP_MESSAGING_VERSION="1.21.23"
+export CP_TIBCO_CP_BASE_VERSION="1.22.0"
+export CP_TIBCO_CP_MESSAGING_VERSION="1.22.14"
 
 # Storage configuration for Control Plane
 export CP_STORAGE_SIZE="10Gi" # Storage size for Control Plane components

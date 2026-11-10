@@ -579,18 +579,18 @@ The following are not required for all deployments but apply in specific custome
 
 > **Version pinning:** Mirror the exact chart versions listed in the setup guide. Do not rely on `latest` tags.
 
-### 10.2 1.21 Data Plane Registration Connectivity and Certificate Trust
+### 10.2 Data Plane Registration Connectivity and Certificate Trust
 
-Hybrid connectivity is enabled by default in the 1.21 Data Plane registration form. Disable it only when the Control Plane can reach the Data Plane directly. When disabled, the **Reachable DP URL** must identify the Data Plane `cpdpproxy` service (for example, `http://cpdpproxy.<dp-namespace>.svc.cluster.local`), and the Control Plane must be able to resolve and reach that endpoint. This is not the OpenShift router domain or application hostname.
+Hybrid connectivity is enabled by default in the Data Plane registration form introduced in 1.21 and carried into 1.22. Disable it only when the Control Plane can reach the Data Plane directly. When disabled, the **Reachable DP URL** must identify the Data Plane `cpdpproxy` service (for example, `http://cpdpproxy.<dp-namespace>.svc.cluster.local`), and the Control Plane must be able to resolve and reach that endpoint. This is not the OpenShift router domain or application hostname.
 
-The 1.21 **Data Plane Certificate** fields describe a different direction of trust: use the Kubernetes Secret name and key when the Data Plane must trust a custom Control Plane certificate. The registration guide does not describe this as a CA-bundle field for making the Control Plane trust the OpenShift router certificate. Do not extract or provide the ARO `router-ca` on the basis of the older guidance in this checklist; validate any ingress-certificate trust requirement against the current product documentation.
+The **Data Plane Certificate** fields describe a different direction of trust: use the Kubernetes Secret name and key when the Data Plane must trust a custom Control Plane certificate. The registration guide does not describe this as a CA-bundle field for making the Control Plane trust the OpenShift router certificate. Do not extract or provide the ARO `router-ca` on the basis of the older guidance in this checklist; validate any ingress-certificate trust requirement against the current product documentation.
 
 - [ ] Decide whether hybrid connectivity remains enabled or whether the Control Plane has verified direct access to the Data Plane.
 - [ ] If disabling hybrid connectivity, record and test the Data Plane `cpdpproxy` URL from the Control Plane network.
 - [ ] If the Control Plane uses a custom certificate, identify the certificate Secret name and key that the Data Plane must trust.
 - [ ] Keep the OpenShift Router ingress configuration and required `tp-scc` grants; these do not substitute for the Reachable DP URL or certificate trust settings.
 
-> **Reference:** [Registering a Kubernetes Cluster — TIBCO Platform 1.21](https://docs.tibco.com/pub/platform-cp/1.21.0/doc/html/UserGuide/registering-an-existing-kubernetes-cluster.htm)
+> **Reference:** [Registering a Kubernetes Cluster — TIBCO Platform 1.22](https://docs.tibco.com/pub/platform-cp/1.22.0/doc/html/UserGuide/registering-an-existing-kubernetes-cluster.htm)
 
 ### 10.3 PostgreSQL SSL Certificate
 
@@ -746,18 +746,17 @@ TIBCO Platform supports the following ingress controllers:
 
 | Ingress Controller | Version | Notes |
 |-------------------|---------|-------|
-| **NGINX** | 4.12.1 | ⚠️ **Deprecated from v1.10.0** - Active development ending per NGINX community |
-| **Traefik** | 3.3.4 | Recommended alternative to NGINX |
+| **Traefik** | 3.3.4 | Supported ingress controller |
 | **OpenShift Router** | ocp-v4.0 | For OpenShift/ARO clusters |
 
 #### Data Plane Ingress Controllers
 
 | Ingress Controller | Version | Use Case |
 |-------------------|---------|----------|
-| **NGINX** | 4.12.1 | ⚠️ **Deprecated from v1.10.0** - Active development ending |
 | **Traefik** | 3.3.4 | Data Plane services and apps |
 | **Kong** | 2.33.3 | **BusinessWorks Container Edition and Flogo apps only** |
 | **OpenShift Router** | ocp-v4.0 | OpenShift Data Plane only (default ingress controller) |
+| **HAProxy** | 1.47.3 | Listed in the 1.22 system requirements for Data Plane and capabilities |
 
 ### Control Plane Requirements
 
@@ -769,7 +768,7 @@ TIBCO Platform supports the following ingress controllers:
 | **Load Balancer** | External Load Balancer with public IP (for managed clusters) |
 | **Wildcard Domain Support** | Must allow wildcard domains and inter-namespace ingress routing |
 
-> **⚠️ Important**: NGINX ingress controller is **deprecated from TIBCO Control Plane 1.10.0 onwards**. Consider using Traefik as the recommended alternative.
+> **⚠️ Important**: NGINX Ingress Controller was deprecated from TIBCO Control Plane 1.10.0 and its usage was **removed from TIBCO Operated Control Plane in 1.22.0**. TIBCO no longer officially supports or recommends it with TIBCO Control Plane and Data Planes, and it is not listed in the 1.22 system requirements. Use the OpenShift Router on ARO. (NGINX Gateway Fabric, a Gateway API controller, is a different product and remains listed.)
 
 #### OpenShift-Specific Configuration
 
@@ -935,7 +934,7 @@ If you encounter any challenges completing these prerequisites, please contact:
 - 4-core CPU processor
 - 8 GB RAM
 - 20 GB disk space
-- Ingress Controller: NGINX or Traefik
+- Ingress Controller: Traefik, HAProxy, or OpenShift Router (see the 1.22 system requirements for Control Tower data planes)
 - Storage class for Hawk Console persistence
 - Observability: Prometheus (metrics), ElasticSearch (traces)
 

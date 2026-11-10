@@ -545,6 +545,10 @@ Each cloud-native Data Plane can host the following capabilities:
 ## Related Guides
 
 - [CP and DP Setup Guide (ARO)](./how-to-cp-and-dp-openshift-aro-aks-setup-guide) — base ARO cluster and platform setup
+- [1.22.0 Quick Reference](./v1.22/QUICK-REFERENCE) — upgrade order, chart versions, and operational notes
+- [Release Notes v1.22.0](../releases/v1.22.0) — component versions and known issues
+- [1.21.0 Quick Reference](./v1.21/QUICK-REFERENCE) — previous release reference
+- [Release Notes v1.21.0](../releases/v1.21.0) — 1.21.0 component versions and known issues
 - [1.20.0 ARO Overlay Guide](./v1.20/how-to-cp-and-dp-aro-setup-guide) — 1.20.0-specific changes and upgrade checklist
 - [1.20.0 Quick Reference](./v1.20/QUICK-REFERENCE) — essential commands and chart versions
 - [ARO Environment Variables](./aks-aro-openshift-env-variables.sh) — environment variable initialization script
